@@ -7,10 +7,9 @@ structured output and appropriate log levels.
 import logging
 import os
 import sys
-from typing import Optional
 
 
-def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str, level: str | None = None) -> logging.Logger:
     """Get a configured logger instance.
 
     Args:
@@ -21,25 +20,25 @@ def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
         Configured logger instance
     """
     logger = logging.getLogger(name)
-    
+
     # Only configure if not already configured
     if not logger.handlers:
-        log_level = level or os.getenv("LOG_LEVEL", "INFO")
-        logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-        
+        log_level_str: str = level if level is not None else os.getenv("LOG_LEVEL", "INFO")
+        logger.setLevel(getattr(logging, log_level_str.upper(), logging.INFO))
+
         # Create console handler with formatting
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logger.level)
-        
+
         # Create formatter
         formatter = logging.Formatter(
             fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         handler.setFormatter(formatter)
-        
+
         logger.addHandler(handler)
-    
+
     return logger
 
 

@@ -5,11 +5,11 @@ configuration management, and test utilities.
 """
 
 import os
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 from dotenv import load_dotenv
-from playwright.sync_api import Browser, BrowserContext, Page, Playwright
+from playwright.sync_api import Browser, BrowserContext, Page
 
 from tests.utils.logger import get_logger
 
@@ -45,7 +45,7 @@ def browser_type_launch_args() -> dict[str, bool | int]:
 
 
 @pytest.fixture(scope="session")
-def browser_context_args(base_url: str) -> dict[str, int | str]:
+def browser_context_args(base_url: str) -> dict[str, dict[str, int] | str]:
     """Configure browser context arguments.
 
     Args:
@@ -54,11 +54,12 @@ def browser_context_args(base_url: str) -> dict[str, int | str]:
     Returns:
         Dictionary of browser context arguments
     """
+    viewport: dict[str, int] = {
+        "width": int(os.getenv("VIEWPORT_WIDTH", "1280")),
+        "height": int(os.getenv("VIEWPORT_HEIGHT", "720")),
+    }
     return {
-        "viewport": {
-            "width": int(os.getenv("VIEWPORT_WIDTH", "1280")),
-            "height": int(os.getenv("VIEWPORT_HEIGHT", "720")),
-        },
+        "viewport": viewport,
         "base_url": base_url,
     }
 
@@ -107,18 +108,18 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "smoke: Quick smoke tests")
     config.addinivalue_line("markers", "ui: UI interaction tests")
     config.addinivalue_line("markers", "slow: Long-running tests")
-    
+
     # Create test results directory
     results_dir = os.getenv("TEST_RESULTS_DIR", "test-results")
     os.makedirs(results_dir, exist_ok=True)
-    
+
     screenshots_dir = os.path.join(results_dir, "screenshots")
     os.makedirs(screenshots_dir, exist_ok=True)
-    
+
     logger.info(f"Test results directory: {results_dir}")
 
 
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:
     """Hook to capture screenshots on test failure.
 
     Args:
@@ -127,11 +128,10 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:
     """
     if call.when == "call" and call.excinfo is not None:
         # Test failed, capture screenshot if page fixture was used
-        page = item.funcargs.get("page")
+        page = getattr(item, "funcargs", {}).get("page")
         if page:
             screenshot_dir = os.path.join(
-                os.getenv("TEST_RESULTS_DIR", "test-results"),
-                "screenshots"
+                os.getenv("TEST_RESULTS_DIR", "test-results"), "screenshots"
             )
             screenshot_path = os.path.join(screenshot_dir, f"{item.name}.png")
             try:
