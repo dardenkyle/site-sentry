@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Test results and artifacts
+test-results/
+playwright-report/
+test-report.html
+*.png
+*.jpg
+*.mp4
+*.webm
+
+# Playwright
+.playwright/
