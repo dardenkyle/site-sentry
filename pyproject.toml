@@ -9,6 +9,7 @@ description = "Automated QA suite for kyledarden.com built with Playwright + Pyt
 readme = "README.md"
 license = "MIT"
 authors = ["Kyle Darden <kyle@kyledarden.com>"]
+packages = []
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -67,7 +68,7 @@ select = [
 ignore = []
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
