@@ -1,0 +1,40 @@
+# Top-level EditorConfig for site-sentry
+# Enforces indentation, newlines, and charset across editors
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Default indentation: 4 spaces (Python-friendly)
+indent_style = space
+indent_size = 4
+
+# Markdown keeps trailing spaces for line breaks
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# YAML/TOML/JSON typically use 2 spaces
+[*.{yml,yaml,toml,json}]
+indent_size = 2
+
+# Workflows & configs (GitHub Actions)
+[.github/**/*.yml]
+indent_size = 2
+
+# Keep Makefile tabs (required by make)
+[Makefile]
+indent_style = tab
+
+# Python-specific hints for some editors
+[*.py]
+# Matches Ruff formatter default (informational for editors)
+max_line_length = 88
+
+# PowerShell scripts (retain CRLF for native Windows compatibility)
+[*.ps1]
+indent_size = 2
+end_of_line = crlf

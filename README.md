@@ -189,6 +189,24 @@ site-sentry/
 └── README.md                # This file
 ```
 
+## Contributing & Standards
+
+This project follows consistent formatting and contribution standards:
+
+- Code style and indentation enforced via [`.editorconfig`](.editorconfig)
+- Linting, formatting, and type checks handled by **Ruff** and **mypy**
+- **Strongly recommended** to use **pre-commit hooks** to ensure all checks pass before committing
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming, commit style, and PR guidelines
+
+**Quick reference:**
+
+```bash
+poetry run ruff check .
+poetry run ruff format .
+poetry run mypy .
+poetry run pytest -v
+```
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
