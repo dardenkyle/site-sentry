@@ -44,7 +44,7 @@ def base_url() -> str:
         Base URL from environment or default
     """
     url = os.getenv("BASE_URL", "https://kyledarden.com")
-    logger.info(f"Using base URL: {url}")
+    logger.info("Using base URL: %s", url)
     return url
 
 
@@ -133,7 +133,7 @@ def pytest_configure(config: pytest.Config) -> None:
     screenshots_dir = os.path.join(results_dir, "screenshots")
     os.makedirs(screenshots_dir, exist_ok=True)
 
-    logger.info(f"Test results directory: {results_dir}")
+    logger.info("Test results directory: %s", results_dir)
 
 
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:
@@ -153,6 +153,6 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
             screenshot_path = os.path.join(screenshot_dir, f"{item.name}.png")
             try:
                 page.screenshot(path=screenshot_path)
-                logger.info(f"Screenshot saved: {screenshot_path}")
+                logger.info("Screenshot saved: %s", screenshot_path)
             except Exception as e:
-                logger.error(f"Failed to capture screenshot: {e}")
+                logger.error("Failed to capture screenshot: %s", e)

@@ -30,7 +30,7 @@ def test_navigation_links_exist(page: Page, base_url: str) -> None:
     link_count = links.count()
 
     assert link_count > 0, "No links found on the page"
-    logger.info(f"Found {link_count} links on the page")
+    logger.info("Found %d links on the page", link_count)
 
 
 @pytest.mark.ui
@@ -112,7 +112,7 @@ def test_images_load(page: Page, base_url: str) -> None:
     image_count = len(images)
 
     if image_count > 0:
-        logger.info(f"Found {image_count} images")
+        logger.info("Found %d images", image_count)
 
         # Check that images have src attributes
         for img in images[:5]:  # Test first 5 images
@@ -168,7 +168,7 @@ def test_favicon_exists(page: Page, base_url: str) -> None:
     favicon_count = favicon_links.count()
 
     if favicon_count > 0:
-        logger.info(f"Found {favicon_count} favicon links")
+        logger.info("Found %d favicon links", favicon_count)
     else:
         logger.warning("No favicon links found")
 
@@ -204,7 +204,7 @@ def test_page_scroll(page: Page, base_url: str) -> None:
 
     if page_height > viewport_height:
         assert new_scroll > initial_scroll, "Page did not scroll"
-        logger.info(f"Page scrolled from {initial_scroll} to {new_scroll}")
+        logger.info("Page scrolled from %d to %d", initial_scroll, new_scroll)
     else:
         logger.info("Page is too short to scroll")
 
@@ -225,7 +225,7 @@ def test_no_broken_styles(page: Page, base_url: str) -> None:
         if response.request.resource_type == "stylesheet":
             if not response.ok:
                 failed_resources.append(response.url)
-                logger.warning(f"Failed to load stylesheet: {response.url}")
+                logger.warning("Failed to load stylesheet: %s", response.url)
 
     page.on("response", handle_response)
     page.goto(base_url)

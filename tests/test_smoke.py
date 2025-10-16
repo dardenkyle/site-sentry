@@ -22,13 +22,13 @@ def test_homepage_loads(page: Page, base_url: str) -> None:
         page: Playwright page fixture
         base_url: Base URL fixture
     """
-    logger.info(f"Testing homepage load: {base_url}")
+    logger.info("Testing homepage load: %s", base_url)
 
     response = page.goto(base_url)
     assert response is not None, "No response received"
     assert response.ok, f"Response not OK: {response.status}"
 
-    logger.info(f"Homepage loaded successfully with status {response.status}")
+    logger.info("Homepage loaded successfully with status %s", response.status)
 
 
 @pytest.mark.smoke
@@ -47,7 +47,7 @@ def test_homepage_title(page: Page, base_url: str) -> None:
     assert title, "Page title is empty"
     assert len(title) > 0, "Page title has no content"
 
-    logger.info(f"Page title: {title}")
+    logger.info("Page title: %s", title)
 
 
 @pytest.mark.smoke
@@ -65,7 +65,7 @@ def test_no_console_errors(page: Page, base_url: str) -> None:
     def handle_console(msg: Any) -> None:
         if msg.type == "error":
             console_errors.append(msg.text)
-            logger.warning(f"Console error: {msg.text}")
+            logger.warning("Console error: %s", msg.text)
 
     page.on("console", handle_console)
     page.goto(base_url)
@@ -98,7 +98,7 @@ def test_response_time(page: Page, base_url: str) -> None:
     assert response is not None, "No response received"
     assert load_time < 5.0, f"Page took {load_time:.2f}s to load (expected < 5s)"
 
-    logger.info(f"Page loaded in {load_time:.2f}s")
+    logger.info("Page loaded in %.2fs", load_time)
 
 
 @pytest.mark.smoke
@@ -141,4 +141,4 @@ def test_https_redirect(page: Page) -> None:
     final_url = page.url
     assert final_url.startswith("https://"), f"Expected HTTPS, got: {final_url}"
 
-    logger.info(f"Successfully redirected to: {final_url}")
+    logger.info("Successfully redirected to: %s", final_url)
