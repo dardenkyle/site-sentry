@@ -1,6 +1,7 @@
 # site-sentry
 
 [![QA Tests](https://github.com/dardenkyle/site-sentry/actions/workflows/tests.yml/badge.svg)](https://github.com/dardenkyle/site-sentry/actions/workflows/tests.yml)
+[![Last Commit](https://img.shields.io/github/last-commit/dardenkyle/site-sentry?label=last%20commit&color=brightgreen)](https://github.com/dardenkyle/site-sentry/commits/main)
 
 Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playwright + Pytest. Runs smoke, navigation, and UI tests in CI to keep the site fast and reliable. Features twice-daily automated checks, HTML reports, and easy local/Docker execution.
 
