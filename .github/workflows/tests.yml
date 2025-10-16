@@ -1,10 +1,6 @@
 name: QA Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   schedule:
     # Run twice daily at 6 AM and 6 PM UTC
     - cron: "0 6,18 * * *"
