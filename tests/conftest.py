@@ -6,6 +6,7 @@ configuration management, and test utilities.
 
 import os
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
@@ -13,10 +14,26 @@ from playwright.sync_api import Browser, BrowserContext, Page
 
 from tests.utils.logger import get_logger
 
+# Create test-results directory immediately when conftest is imported
+TEST_RESULTS_DIR = Path(__file__).parent.parent / "test-results"
+TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
 # Load environment variables
 load_dotenv()
 
 logger = get_logger(__name__)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Ensure test-results directory exists before HTML report writes.
+
+    The hookwrapper=True makes this run around other sessionfinish hooks,
+    and we recreate the directory right before yielding control.
+    """
+    TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    yield
+    # Directory created, now pytest-html can write
 
 
 @pytest.fixture(scope="session")

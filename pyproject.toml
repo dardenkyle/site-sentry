@@ -1,17 +1,15 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "site-sentry"
 version = "0.1.0"
 description = "Automated QA suite for kyledarden.com built with Playwright + Pytest"
 readme = "README.md"
-requires-python = ">=3.12"
-license = {text = "MIT"}
-authors = [
-    {name = "Kyle Darden", email = "kyle@kyledarden.com"}
-]
+license = "MIT"
+authors = ["Kyle Darden <kyle@kyledarden.com>"]
+packages = []
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -21,20 +19,18 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
-dependencies = [
-    "pytest>=8.0.0",
-    "pytest-playwright>=0.5.0",
-    "playwright>=1.40.0",
-    "python-dotenv>=1.0.0",
-]
+[tool.poetry.dependencies]
+python = ">=3.12"
+pytest = ">=8.0.0"
+pytest-playwright = ">=0.5.0"
+playwright = ">=1.40.0"
+python-dotenv = ">=1.0.0"
 
-[project.optional-dependencies]
-dev = [
-    "pytest-html>=4.1.1",
-    "pytest-xdist>=3.5.0",
-    "ruff>=0.5.0",
-    "mypy>=1.9.0",
-]
+[tool.poetry.group.dev.dependencies]
+pytest-html = ">=4.1.1"
+pytest-xdist = ">=3.5.0"
+ruff = ">=0.5.0"
+mypy = ">=1.9.0"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -72,7 +68,7 @@ select = [
 ignore = []
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
