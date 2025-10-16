@@ -25,7 +25,9 @@ logger = get_logger(__name__)
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+def pytest_sessionfinish(
+    session: pytest.Session, exitstatus: int
+) -> Generator[None, None, None]:
     """Ensure test-results directory exists before HTML report writes.
 
     The hookwrapper=True makes this run around other sessionfinish hooks,
