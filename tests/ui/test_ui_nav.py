@@ -231,7 +231,7 @@ def test_no_broken_styles(page: Page, base_url: str) -> None:
     page.goto(base_url)
     page.wait_for_load_state("networkidle")
 
-    assert len(failed_resources) == 0, (
-        f"Failed to load {len(failed_resources)} stylesheets: {failed_resources}"
-    )
+    assert (
+        len(failed_resources) == 0
+    ), f"Failed to load {len(failed_resources)} stylesheets: {failed_resources}"
     logger.info("All stylesheets loaded successfully")
