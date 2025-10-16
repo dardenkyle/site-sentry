@@ -10,38 +10,46 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 - 🧪 **Comprehensive tests**: Smoke tests, UI validation, and navigation checks
 - 🐳 **Containerized**: Full Docker support for consistent environments
 - 🤖 **CI/CD ready**: Automated runs twice daily with GitHub Actions
-- 📊 **Rich reporting**: HTML test reports with screenshots on failure
-- ⚡ **Fast & efficient**: Optimized for quick feedback
+- 📊 **Rich reporting**: HTML test reports auto-generate with screenshots on failure
+- ⚡ **Fast & efficient**: Optimized for quick feedback (~2m 30s in CI)
+- 📦 **Poetry-managed**: Modern Python dependency management
 - 📝 **Fully typed**: Type hints throughout for better IDE support
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.13+
-- pip
+- Python 3.14+
+- Poetry (for dependency management)
 
 ### Local Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/dardenkyle/site-sentry.git
    cd site-sentry
    ```
 
-2. **Create and activate virtual environment**
+2. **Install Poetry** (if not already installed)
+
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   # Windows (PowerShell)
+   (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
+
+   # macOS/Linux
+   curl -sSL https://install.python-poetry.org | python3 -
    ```
 
 3. **Install dependencies**
+
    ```bash
-   pip install -e .[dev]
-   playwright install chromium
+   poetry install --no-root
+   poetry run playwright install chromium
    ```
 
-4. **Configure environment**
+4. **Configure environment** (optional)
+
    ```bash
    cp .env.example .env
    # Edit .env if needed to customize settings
@@ -49,7 +57,7 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 
 5. **Run tests**
    ```bash
-   pytest
+   poetry run pytest -v
    ```
 
 ### Docker Run
@@ -91,19 +99,18 @@ tests/
 
 ```bash
 # Run only smoke tests
-pytest -m smoke
+poetry run pytest -m smoke
 
 # Run only UI tests
-pytest -m ui
+poetry run pytest -m ui
 
 # Run specific test file
-pytest tests/test_smoke.py
+poetry run pytest tests/test_smoke.py
 
 # Run with verbose output
-pytest -v
+poetry run pytest -v
 
-# Run with HTML report
-pytest --html=test-results/report.html --self-contained-html
+# HTML reports auto-generate at test-results/report.html
 ```
 
 ## Configuration
@@ -141,13 +148,13 @@ Test results and HTML reports are uploaded as artifacts and retained for 30 days
 
 ```bash
 # Type checking
-mypy tests/
+poetry run mypy tests/
 
 # Linting
-ruff check tests/
+poetry run ruff check tests/
 
 # Format checking
-ruff format --check tests/
+poetry run ruff format --check tests/
 ```
 
 ### Adding New Tests
