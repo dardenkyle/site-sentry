@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a general question
+    url: https://github.com/dardenkyle/site-sentry/discussions
+    about: Please start a discussion for general questions or ideas.
