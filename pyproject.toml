@@ -1,35 +1,31 @@
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name = "site-sentry"
 version = "0.1.0"
 description = "Automated QA suite for kyledarden.com built with Playwright + Pytest"
 readme = "README.md"
 license = "MIT"
-authors = ["Kyle Darden <kyle@kyledarden.com>"]
-packages = []
+authors = [{ name = "Kyle Darden", email = "kyle@kyledarden.com" }]
+requires-python = ">=3.14"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.14",
 ]
+dependencies = [
+    "pytest>=8.0.0",
+    "pytest-playwright>=0.5.0",
+    "playwright>=1.40.0",
+    "python-dotenv>=1.0.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.14"
-pytest = ">=8.0.0"
-pytest-playwright = ">=0.5.0"
-playwright = ">=1.40.0"
-python-dotenv = ">=1.0.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest-html = ">=4.1.1"
-pytest-xdist = ">=3.5.0"
-ruff = ">=0.5.0"
-mypy = ">=1.9.0"
+[dependency-groups]
+dev = [
+    "pytest-html>=4.1.1",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.5.0",
+    "mypy>=1.9.0",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

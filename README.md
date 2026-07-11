@@ -13,7 +13,7 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 - 🤖 **CI/CD ready**: Automated runs twice daily with GitHub Actions
 - 📊 **Rich reporting**: HTML test reports auto-generate with screenshots on failure
 - ⚡ **Fast & efficient**: Optimized for quick feedback (~2m 30s in CI)
-- 📦 **Poetry-managed**: Modern Python dependency management
+- 📦 **uv-managed**: Fast, modern Python dependency management with a committed lockfile
 - 📝 **Fully typed**: Type hints throughout for better IDE support
 
 ## Quick Start
@@ -21,7 +21,7 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 ### Prerequisites
 
 - Python 3.14+
-- Poetry (for dependency management)
+- [uv](https://docs.astral.sh/uv/) (for dependency management)
 
 ### Local Installation
 
@@ -32,21 +32,21 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
    cd site-sentry
    ```
 
-2. **Install Poetry** (if not already installed)
+2. **Install uv** (if not already installed)
 
    ```bash
    # Windows (PowerShell)
-   (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
    # macOS/Linux
-   curl -sSL https://install.python-poetry.org | python3 -
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
 3. **Install dependencies**
 
    ```bash
-   poetry install --no-root
-   poetry run playwright install chromium
+   uv sync
+   uv run playwright install chromium
    ```
 
 4. **Configure environment** (optional)
@@ -58,7 +58,7 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 
 5. **Run tests**
    ```bash
-   poetry run pytest -v
+   uv run pytest -v
    ```
 
 ### Docker Run
@@ -100,16 +100,16 @@ tests/
 
 ```bash
 # Run only smoke tests
-poetry run pytest -m smoke
+uv run pytest -m smoke
 
 # Run only UI tests
-poetry run pytest -m ui
+uv run pytest -m ui
 
 # Run specific test file
-poetry run pytest tests/test_smoke.py
+uv run pytest tests/smoke/test_smoke.py
 
 # Run with verbose output
-poetry run pytest -v
+uv run pytest -v
 
 # HTML reports auto-generate at test-results/report.html
 ```
@@ -149,13 +149,13 @@ Test results and HTML reports are uploaded as artifacts and retained for 30 days
 
 ```bash
 # Type checking
-poetry run mypy tests/
+uv run mypy tests/
 
 # Linting
-poetry run ruff check tests/
+uv run ruff check tests/
 
 # Format checking
-poetry run ruff format --check tests/
+uv run ruff format --check tests/
 ```
 
 ### Adding New Tests
@@ -201,10 +201,10 @@ This project follows consistent formatting and contribution standards:
 **Quick reference:**
 
 ```bash
-poetry run ruff check .
-poetry run ruff format .
-poetry run mypy .
-poetry run pytest -v
+uv run ruff check .
+uv run ruff format .
+uv run mypy .
+uv run pytest -v
 ```
 
 ## License
