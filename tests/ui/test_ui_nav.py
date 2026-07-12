@@ -14,16 +14,15 @@ logger = get_logger(__name__)
 
 
 @pytest.mark.ui
-def test_navigation_links_exist(page: Page, base_url: str) -> None:
+def test_navigation_links_exist(page: Page) -> None:
     """Test that navigation links are present on the page.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing navigation links presence")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Check for common navigation elements
     links = page.locator("a[href]")
@@ -34,16 +33,15 @@ def test_navigation_links_exist(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.ui
-def test_navigation_links_valid(page: Page, base_url: str) -> None:
+def test_navigation_links_valid(page: Page) -> None:
     """Test that navigation links have valid href attributes.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing navigation link validity")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Get all internal links
     links = page.locator("a[href]").all()
@@ -60,18 +58,17 @@ def test_navigation_links_valid(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.ui
-def test_responsive_viewport(page: Page, base_url: str) -> None:
+def test_responsive_viewport(page: Page) -> None:
     """Test that the site is responsive at different viewport sizes.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing responsive design")
 
     # Test mobile viewport
     page.set_viewport_size({"width": 375, "height": 667})
-    page.goto(base_url)
+    page.goto("/")
 
     body = page.locator("body")
     expect(body).to_be_visible()
@@ -94,16 +91,15 @@ def test_responsive_viewport(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.ui
-def test_images_load(page: Page, base_url: str) -> None:
+def test_images_load(page: Page) -> None:
     """Test that images on the page load successfully.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing image loading")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Wait for images to load
     page.wait_for_load_state("networkidle")
@@ -126,16 +122,15 @@ def test_images_load(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.ui
-def test_meta_tags_present(page: Page, base_url: str) -> None:
+def test_meta_tags_present(page: Page) -> None:
     """Test that essential meta tags are present.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing meta tags")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Check for viewport meta tag (important for mobile)
     viewport_meta = page.locator('meta[name="viewport"]')
@@ -152,16 +147,15 @@ def test_meta_tags_present(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.ui
-def test_favicon_exists(page: Page, base_url: str) -> None:
+def test_favicon_exists(page: Page) -> None:
     """Test that a favicon is defined.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing favicon presence")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Look for favicon link tags
     favicon_links = page.locator('link[rel*="icon"]')
@@ -175,16 +169,15 @@ def test_favicon_exists(page: Page, base_url: str) -> None:
 
 @pytest.mark.ui
 @pytest.mark.slow
-def test_page_scroll(page: Page, base_url: str) -> None:
+def test_page_scroll(page: Page) -> None:
     """Test that the page can be scrolled.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing page scroll functionality")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Get initial scroll position
     initial_scroll = page.evaluate("window.pageYOffset")
@@ -210,12 +203,11 @@ def test_page_scroll(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.ui
-def test_no_broken_styles(page: Page, base_url: str) -> None:
+def test_no_broken_styles(page: Page) -> None:
     """Test that CSS stylesheets load successfully.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing CSS loading")
 
@@ -228,7 +220,7 @@ def test_no_broken_styles(page: Page, base_url: str) -> None:
                 logger.warning("Failed to load stylesheet: %s", response.url)
 
     page.on("response", handle_response)
-    page.goto(base_url)
+    page.goto("/")
     page.wait_for_load_state("networkidle")
 
     assert len(failed_resources) == 0, (
