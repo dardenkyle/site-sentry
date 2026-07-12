@@ -61,8 +61,9 @@ def base_url(request: pytest.FixtureRequest) -> str:
 def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[str, Any]:
     """Extend pytest-playwright's launch arguments with env overrides.
 
-    Env vars are applied only when explicitly set, so the plugin's CLI
-    options (--headed, --slowmo, --browser-channel) keep working.
+    CLI options take precedence over env vars: the plugin only emits
+    headless/slow_mo when --headed/--slowmo are passed, and values that
+    load_dotenv() picked up from a .env file must not disable them.
 
     Args:
         browser_type_launch_args: The plugin's built-in launch arguments
@@ -71,9 +72,9 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
         Launch arguments with HEADLESS/SLOWMO overrides applied
     """
     launch_args = dict(browser_type_launch_args)
-    if "HEADLESS" in os.environ:
+    if "HEADLESS" in os.environ and "headless" not in launch_args:
         launch_args["headless"] = os.environ["HEADLESS"].lower() == "true"
-    if "SLOWMO" in os.environ:
+    if "SLOWMO" in os.environ and "slow_mo" not in launch_args:
         launch_args["slow_mo"] = int(os.environ["SLOWMO"])
     return launch_args
 
@@ -83,8 +84,10 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
     """Extend pytest-playwright's context arguments with env overrides.
 
     The plugin's arguments already carry base_url, --device presets, and
-    --video recording; the viewport is only overridden when configured,
-    so device presets are not clobbered by defaults.
+    --video recording. A --device preset supplies its own viewport and
+    takes precedence; the env viewport (often loaded from .env) is
+    applied only when no preset did, so presets are never clobbered,
+    fully or partially.
 
     Args:
         browser_context_args: The plugin's built-in context arguments
@@ -93,7 +96,8 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
         Context arguments with the configured viewport applied
     """
     context_args = dict(browser_context_args)
-    if "VIEWPORT_WIDTH" in os.environ or "VIEWPORT_HEIGHT" in os.environ:
+    env_viewport = "VIEWPORT_WIDTH" in os.environ or "VIEWPORT_HEIGHT" in os.environ
+    if env_viewport and "viewport" not in context_args:
         context_args["viewport"] = {
             "width": int(os.getenv("VIEWPORT_WIDTH", "1280")),
             "height": int(os.getenv("VIEWPORT_HEIGHT", "720")),

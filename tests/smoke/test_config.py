@@ -6,7 +6,7 @@ pytest-playwright built-ins and silently dropping configuration
 (issue #26).
 """
 
-import os
+from typing import Any
 
 import pytest
 from playwright.sync_api import Page
@@ -15,18 +15,23 @@ from tests.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Playwright's built-in default, used when no viewport is configured
+PLAYWRIGHT_DEFAULT_VIEWPORT = {"width": 1280, "height": 720}
+
 
 @pytest.mark.smoke
-def test_viewport_matches_configuration(page: Page) -> None:
+def test_viewport_matches_configuration(page: Page, browser_context_args: dict[str, Any]) -> None:
     """Test that the configured viewport is applied to the context.
+
+    The expectation is derived from the resolved browser_context_args,
+    so it holds for env overrides, --device presets, and the plugin
+    default alike.
 
     Args:
         page: Playwright page fixture
+        browser_context_args: Resolved browser context arguments
     """
-    expected = {
-        "width": int(os.getenv("VIEWPORT_WIDTH", "1280")),
-        "height": int(os.getenv("VIEWPORT_HEIGHT", "720")),
-    }
+    expected = browser_context_args.get("viewport", PLAYWRIGHT_DEFAULT_VIEWPORT)
     logger.info("Expecting viewport: %s", expected)
 
     assert page.viewport_size == expected, (
