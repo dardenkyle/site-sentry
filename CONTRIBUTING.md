@@ -8,14 +8,14 @@ This guide keeps contributions consistent and the CI green.
 ## Quick Start
 
 ```bash
-# Python 3.13 recommended
-poetry install
-poetry run python -m playwright install --with-deps chromium
+# Python 3.14+ required (see requires-python in pyproject.toml)
+uv sync
+uv run playwright install --with-deps chromium
 
 # “Pre-commit hooks are recommended for consistent formatting and linting. The CI pipeline enforces the same checks.”
-poetry add --dev pre-commit
-poetry run pre-commit install
-poetry run pre-commit run --all-files
+uv add --dev pre-commit
+uv run pre-commit install
+uv run pre-commit run --all-files
 ```
 
 If you have a Makefile:
@@ -30,10 +30,10 @@ make test     # pytest (HTML/JUnit reports)
 Without Makefile:
 
 ```bash
-poetry run ruff check .
-poetry run ruff format .
-poetry run mypy .
-poetry run pytest -v --html=test-results/report.html --self-contained-html
+uv run ruff check .
+uv run ruff format .
+uv run mypy .
+uv run pytest -v --html=test-results/report.html --self-contained-html
 ```
 
 ---
@@ -112,12 +112,12 @@ Run locally:
 
 ```bash
 # Linux/macOS
-HEADLESS=false poetry run pytest -v
+HEADLESS=false uv run pytest -v
 ```
 
 ```bash
 # Windows
-$env:HEADLESS = "false"; poetry run pytest -v; Remove-Item Env:\HEADLESS
+$env:HEADLESS = "false"; uv run pytest -v; Remove-Item Env:\HEADLESS
 ```
 
 ---
