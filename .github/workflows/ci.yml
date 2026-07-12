@@ -43,6 +43,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build image
         run: docker build -t site-sentry .
+      - name: Smoke-test image
+        run: docker run --rm site-sentry uv run --locked pytest -m smoke
 
   test:
     runs-on: ubuntu-latest
