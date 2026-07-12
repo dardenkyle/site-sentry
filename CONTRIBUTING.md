@@ -8,7 +8,7 @@ This guide keeps contributions consistent and the CI green.
 ## Quick Start
 
 ```bash
-# Python 3.13 recommended
+# Python 3.14+ required (see requires-python in pyproject.toml)
 uv sync
 uv run playwright install --with-deps chromium
 
