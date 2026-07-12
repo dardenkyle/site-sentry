@@ -20,7 +20,7 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 
 ### Prerequisites
 
-- Python 3.14+
+- Python 3.12.13 (pinned in `.python-version`; uv provisions it automatically)
 - [uv](https://docs.astral.sh/uv/) (for dependency management)
 
 ### Local Installation

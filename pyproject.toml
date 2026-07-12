@@ -5,12 +5,12 @@ description = "Automated QA suite for kyledarden.com built with Playwright + Pyt
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Kyle Darden", email = "kyle@kyledarden.com" }]
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "pytest>=8.0.0",
@@ -63,7 +63,7 @@ select = [
 ignore = []
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

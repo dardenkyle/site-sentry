@@ -12,7 +12,7 @@ What’s inconsistent or missing in local DX / CI?
 
 ## Proposal
 
-Describe the improvement (e.g., add pre-commit hooks, standardize Python 3.13, add Makefile).
+Describe the improvement (e.g., add pre-commit hooks, standardize the Python version, add Makefile).
 
 ## Acceptance Criteria
 
