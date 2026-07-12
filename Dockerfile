@@ -1,30 +1,36 @@
 # Site Sentry Dockerfile
-# Production-ready containerized Playwright + Pytest QA suite
+# Containerized Playwright + Pytest QA suite, pinned to Python 3.12.13.
+#
+# Build:  docker build -t site-sentry .
+# Run:    docker run --rm site-sentry
+# Config: docker run --rm -e BASE_URL=https://kyledarden.com site-sentry
 
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+FROM python:3.12.13-slim
 
-# Set working directory
+# uv binary pinned for reproducible builds; bump deliberately.
+COPY --from=ghcr.io/astral-sh/uv:0.11.23 /uv /uvx /usr/local/bin/
+
 WORKDIR /app
 
-# Set Python environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    # The image's interpreter is exactly 3.12.13; never download another.
+    UV_PYTHON_DOWNLOADS=never \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Dependency layer: only pyproject.toml/uv.lock invalidate it.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked
 
-# Install Python dependencies
-RUN pip install --upgrade pip && \
-    pip install -e .[dev]
+# Browser layer: version always matches the locked playwright package.
+RUN uv run playwright install --with-deps chromium
 
-# Copy application files
 COPY tests/ ./tests/
-COPY .env.example .env
 
-# Create test results directory
+# Report output directory; mount it to keep reports on the host:
+#   docker run --rm -v $(pwd)/test-results:/app/test-results site-sentry
 RUN mkdir -p test-results
 
-# Set default command to run tests
-CMD ["pytest", "--html=test-results/report.html", "--self-contained-html"]
+# Configuration comes from -e flags at run time (see README), never a
+# baked-in .env.
+CMD ["uv", "run", "--locked", "pytest"]

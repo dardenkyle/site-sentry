@@ -35,6 +35,15 @@ jobs:
       - name: Mypy
         run: uv run mypy .
 
+  docker:
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t site-sentry .
+
   test:
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
