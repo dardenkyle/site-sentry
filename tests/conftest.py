@@ -7,10 +7,10 @@ configuration management, and test utilities.
 import os
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from dotenv import load_dotenv
-from playwright.sync_api import Browser, BrowserContext, Page
 
 from tests.utils.logger import get_logger
 
@@ -37,82 +37,68 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> Generator[
 
 
 @pytest.fixture(scope="session")
-def base_url() -> str:
+def base_url(request: pytest.FixtureRequest) -> str:
     """Get the base URL for the site under test.
 
+    Overrides pytest-base-url's fixture so BASE_URL from the environment
+    is honored. The --base-url CLI option still wins when passed, and
+    pytest-playwright applies the result to every browser context, so
+    tests can navigate relatively via page.goto("/").
+
+    Args:
+        request: Pytest fixture request, used to read the CLI option
+
     Returns:
-        Base URL from environment or default
+        Base URL from CLI option, environment, or default
     """
-    url = os.getenv("BASE_URL", "https://kyledarden.com")
+    cli_url: str | None = request.config.getoption("--base-url")
+    url = cli_url if cli_url else os.getenv("BASE_URL", "https://kyledarden.com")
     logger.info("Using base URL: %s", url)
     return url
 
 
 @pytest.fixture(scope="session")
-def browser_type_launch_args() -> dict[str, bool | int]:
-    """Configure browser launch arguments.
+def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[str, Any]:
+    """Extend pytest-playwright's launch arguments with env overrides.
+
+    Env vars are applied only when explicitly set, so the plugin's CLI
+    options (--headed, --slowmo, --browser-channel) keep working.
+
+    Args:
+        browser_type_launch_args: The plugin's built-in launch arguments
 
     Returns:
-        Dictionary of browser launch arguments
+        Launch arguments with HEADLESS/SLOWMO overrides applied
     """
-    return {
-        "headless": os.getenv("HEADLESS", "true").lower() == "true",
-        "slow_mo": int(os.getenv("SLOWMO", "0")),
-    }
+    launch_args = dict(browser_type_launch_args)
+    if "HEADLESS" in os.environ:
+        launch_args["headless"] = os.environ["HEADLESS"].lower() == "true"
+    if "SLOWMO" in os.environ:
+        launch_args["slow_mo"] = int(os.environ["SLOWMO"])
+    return launch_args
 
 
 @pytest.fixture(scope="session")
-def browser_context_args(base_url: str) -> dict[str, dict[str, int] | str]:
-    """Configure browser context arguments.
+def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
+    """Extend pytest-playwright's context arguments with env overrides.
+
+    The plugin's arguments already carry base_url, --device presets, and
+    --video recording; the viewport is only overridden when configured,
+    so device presets are not clobbered by defaults.
 
     Args:
-        base_url: Base URL for the site
+        browser_context_args: The plugin's built-in context arguments
 
     Returns:
-        Dictionary of browser context arguments
+        Context arguments with the configured viewport applied
     """
-    viewport: dict[str, int] = {
-        "width": int(os.getenv("VIEWPORT_WIDTH", "1280")),
-        "height": int(os.getenv("VIEWPORT_HEIGHT", "720")),
-    }
-    return {
-        "viewport": viewport,
-        "base_url": base_url,
-    }
-
-
-@pytest.fixture(scope="function")
-def page(context: BrowserContext) -> Generator[Page, None, None]:
-    """Create a new page for each test.
-
-    Args:
-        context: Browser context fixture
-
-    Yields:
-        New page instance
-    """
-    page = context.new_page()
-    logger.info("Created new page")
-    yield page
-    logger.info("Closing page")
-    page.close()
-
-
-@pytest.fixture(scope="function")
-def context(browser: Browser) -> Generator[BrowserContext, None, None]:
-    """Create a new browser context for each test.
-
-    Args:
-        browser: Browser fixture
-
-    Yields:
-        New browser context
-    """
-    context = browser.new_context()
-    logger.info("Created new browser context")
-    yield context
-    logger.info("Closing browser context")
-    context.close()
+    context_args = dict(browser_context_args)
+    if "VIEWPORT_WIDTH" in os.environ or "VIEWPORT_HEIGHT" in os.environ:
+        context_args["viewport"] = {
+            "width": int(os.getenv("VIEWPORT_WIDTH", "1280")),
+            "height": int(os.getenv("VIEWPORT_HEIGHT", "720")),
+        }
+    return context_args
 
 
 def pytest_configure(config: pytest.Config) -> None:

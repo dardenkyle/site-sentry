@@ -15,16 +15,15 @@ logger = get_logger(__name__)
 
 
 @pytest.mark.smoke
-def test_homepage_loads(page: Page, base_url: str) -> None:
+def test_homepage_loads(page: Page) -> None:
     """Test that the homepage loads successfully.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
-    logger.info("Testing homepage load: %s", base_url)
+    logger.info("Testing homepage load")
 
-    response = page.goto(base_url)
+    response = page.goto("/")
     assert response is not None, "No response received"
     assert response.ok, f"Response not OK: {response.status}"
 
@@ -32,16 +31,15 @@ def test_homepage_loads(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.smoke
-def test_homepage_title(page: Page, base_url: str) -> None:
+def test_homepage_title(page: Page) -> None:
     """Test that the homepage has a proper title.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing homepage title")
 
-    page.goto(base_url)
+    page.goto("/")
     title = page.title()
 
     assert title, "Page title is empty"
@@ -51,12 +49,11 @@ def test_homepage_title(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.smoke
-def test_no_console_errors(page: Page, base_url: str) -> None:
+def test_no_console_errors(page: Page) -> None:
     """Test that the homepage loads without console errors.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing for console errors")
 
@@ -68,7 +65,7 @@ def test_no_console_errors(page: Page, base_url: str) -> None:
             logger.warning("Console error: %s", msg.text)
 
     page.on("console", handle_console)
-    page.goto(base_url)
+    page.goto("/")
 
     # Wait a moment for any delayed console errors
     page.wait_for_timeout(1000)
@@ -78,12 +75,11 @@ def test_no_console_errors(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.smoke
-def test_response_time(page: Page, base_url: str) -> None:
+def test_response_time(page: Page) -> None:
     """Test that the homepage loads within acceptable time.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing page load time")
 
@@ -91,7 +87,7 @@ def test_response_time(page: Page, base_url: str) -> None:
 
     start_time = time.time()
 
-    response = page.goto(base_url, wait_until="load")
+    response = page.goto("/", wait_until="load")
 
     load_time = time.time() - start_time
 
@@ -102,16 +98,15 @@ def test_response_time(page: Page, base_url: str) -> None:
 
 
 @pytest.mark.smoke
-def test_main_content_visible(page: Page, base_url: str) -> None:
+def test_main_content_visible(page: Page) -> None:
     """Test that main content is visible on the homepage.
 
     Args:
         page: Playwright page fixture
-        base_url: Base URL fixture
     """
     logger.info("Testing main content visibility")
 
-    page.goto(base_url)
+    page.goto("/")
 
     # Check that the page has a body with content
     body = page.locator("body")
