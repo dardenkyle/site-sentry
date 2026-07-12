@@ -1,0 +1,7 @@
+# Keep the build context minimal: only pyproject.toml, uv.lock, and
+# tests/ are copied into the image.
+*
+!pyproject.toml
+!uv.lock
+!tests/
+!tests/**
