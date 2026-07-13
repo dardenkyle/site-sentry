@@ -4,6 +4,7 @@ Tests for user interface elements, navigation, and interactive features.
 """
 
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -11,6 +12,59 @@ from playwright.sync_api import Page, expect
 from tests.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Hrefs that are not navigable pages and should not be link-checked
+NON_PAGE_HREF_PREFIXES = ("#", "javascript:", "mailto:", "tel:")
+
+# Cap on link-checking requests to keep the test fast
+MAX_LINKS_CHECKED = 10
+
+# Generous bound that always includes the injected canary link, which
+# sits last in the DOM
+CANARY_SCAN_LIMIT = 1000
+
+
+def _internal_link_urls(page: Page, limit: int) -> list[str]:
+    """Collect resolved, de-duplicated internal link URLs from the page.
+
+    Args:
+        page: Page to collect anchor hrefs from
+        limit: Maximum number of URLs to return
+
+    Returns:
+        Up to limit absolute URLs on the same host as the page
+    """
+    page_host = urlparse(page.url).hostname
+    urls: list[str] = []
+    for link in page.locator("a[href]").all():
+        href = (link.get_attribute("href") or "").strip()
+        if href and not href.startswith(NON_PAGE_HREF_PREFIXES):
+            absolute = urljoin(page.url, href)
+            if urlparse(absolute).hostname == page_host and absolute not in urls:
+                urls.append(absolute)
+    return urls[:limit]
+
+
+def _broken_links(page: Page, urls: list[str]) -> list[str]:
+    """Request each URL and report the ones that do not resolve.
+
+    Redirects are followed, so any final status of 400 or above counts
+    as broken.
+
+    Args:
+        page: Page whose request context issues the checks
+        urls: Absolute URLs to check
+
+    Returns:
+        Descriptions of URLs that failed to resolve
+    """
+    broken: list[str] = []
+    for url in urls:
+        response = page.request.get(url)
+        if not response.ok:
+            broken.append(f"{url} -> HTTP {response.status}")
+            logger.warning("Broken link: %s (HTTP %d)", url, response.status)
+    return broken
 
 
 @pytest.mark.ui
@@ -34,7 +88,7 @@ def test_navigation_links_exist(page: Page) -> None:
 
 @pytest.mark.ui
 def test_navigation_links_valid(page: Page) -> None:
-    """Test that navigation links have valid href attributes.
+    """Test that internal navigation links resolve successfully.
 
     Args:
         page: Playwright page fixture
@@ -43,18 +97,37 @@ def test_navigation_links_valid(page: Page) -> None:
 
     page.goto("/")
 
-    # Get all internal links
-    links = page.locator("a[href]").all()
-    invalid_links: list[str] = []
+    urls = _internal_link_urls(page, MAX_LINKS_CHECKED)
+    broken = _broken_links(page, urls)
 
-    for link in links[:10]:  # Test first 10 links to keep test fast
-        href = link.get_attribute("href")
-        if href and not href.startswith(("#", "javascript:", "mailto:", "tel:")):
-            if not href or href == "" or href == "#":
-                invalid_links.append(href or "empty")
+    assert len(broken) == 0, f"Found broken internal links: {broken}"
+    logger.info("All %d checked internal links resolve", len(urls))
 
-    assert len(invalid_links) == 0, f"Found invalid links: {invalid_links}"
-    logger.info("All tested links have valid href attributes")
+
+@pytest.mark.ui
+def test_navigation_link_check_detects_broken(page: Page) -> None:
+    """Test that the link check itself catches a broken link.
+
+    Guards against the check silently degrading into one that can never
+    fail (issue #27): a link to a nonexistent page is injected and must
+    be reported as broken.
+
+    Args:
+        page: Playwright page fixture
+    """
+    logger.info("Testing that the link check detects broken links")
+
+    page.goto("/")
+    page.evaluate(
+        "document.body.insertAdjacentHTML('beforeend',"
+        " '<a href=\"/site-sentry-link-check-canary\">canary</a>')"
+    )
+
+    urls = _internal_link_urls(page, CANARY_SCAN_LIMIT)
+    broken = _broken_links(page, [url for url in urls if "link-check-canary" in url])
+
+    assert len(broken) == 1, "Injected broken link was not detected"
+    logger.info("Link check correctly detected the injected broken link")
 
 
 @pytest.mark.ui
