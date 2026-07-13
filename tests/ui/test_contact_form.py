@@ -71,9 +71,7 @@ def test_contact_form_targets_formsubmit_ajax(page: Page) -> None:
 
     expect(page.get_by_text(SUCCESS_BANNER_TEXT)).to_be_visible()
 
-    assert len(requests) == 1, (
-        f"Expected exactly one FormSubmit request, saw {len(requests)}"
-    )
+    assert len(requests) == 1, f"Expected exactly one FormSubmit request, saw {len(requests)}"
     request = requests[0]
     assert request.method == "POST", f"Expected POST, got {request.method}"
     assert request.url.startswith(FORMSUBMIT_AJAX_PREFIX), (
