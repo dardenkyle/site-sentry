@@ -19,8 +19,9 @@ NON_PAGE_HREF_PREFIXES = ("#", "javascript:", "mailto:", "tel:")
 # Cap on link-checking requests to keep the test fast
 MAX_LINKS_CHECKED = 10
 
-# Generous bound that always includes the injected canary link, which
-# sits last in the DOM
+# Scan bound for the canary test, assumed to exceed the page's internal
+# link count so the injected canary (last in the DOM) is included; the
+# canary assertion fails loudly if the page ever outgrows it
 CANARY_SCAN_LIMIT = 1000
 
 
