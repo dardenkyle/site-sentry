@@ -53,42 +53,47 @@ jobs:
           path: test-results/report.html
           retention-days: 30
 
-  # A red X in the Actions tab is not an alert: scheduled failures open
-  # (or update) a single site-down incident issue, and the next passing
-  # scheduled run closes it with the downtime recorded. Manual and PR
-  # runs never touch incident issues.
+  # A red X in the Actions tab is not an alert: any scheduled run that
+  # does not succeed (failure, timeout, cancellation) opens or updates
+  # a single site-down incident issue, and the next passing scheduled
+  # run closes it with the downtime recorded. Manual and PR runs never
+  # touch incident issues.
   alert:
     name: Manage site-down incident issue
     runs-on: ubuntu-latest
     needs: test
-    if: >-
-      always() && github.event_name == 'schedule' &&
-      contains(fromJSON('["success", "failure"]'), needs.test.result)
+    if: always() && github.event_name == 'schedule'
+    # Serialize incident side effects so overlapping runs (e.g. a
+    # re-run racing the next scheduled run) cannot duplicate the issue
+    concurrency:
+      group: site-down-incident
+      cancel-in-progress: false
     permissions:
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TEST_RESULT: ${{ needs.test.result }}
     steps:
       - name: Open or update incident issue
-        if: needs.test.result == 'failure'
+        if: needs.test.result != 'success'
         run: |
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
             --label site-down --state open \
             --json number --jq '.[0].number // empty')
           if [ -z "$existing" ]; then
             gh issue create --repo "$GITHUB_REPOSITORY" \
-              --title "Site down: scheduled QA run failed" \
+              --title "Site down: scheduled QA run did not succeed" \
               --label site-down \
-              --body "The scheduled QA run against the live site failed.
+              --body "The scheduled QA run against the live site did not succeed (result: $TEST_RESULT).
 
-          - Failed run: $RUN_URL
+          - Run: $RUN_URL
           - The \`html-report\` artifact on the run has per-test details.
 
-          This issue is managed automatically: further scheduled failures add comments here, and the next passing scheduled run closes it."
+          This issue is managed automatically: further unsuccessful scheduled runs add comments here, and the next passing scheduled run closes it."
           else
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
-              --body "Still failing: $RUN_URL"
+              --body "Still not passing (result: $TEST_RESULT): $RUN_URL"
           fi
 
       - name: Close incident issue on recovery
