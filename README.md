@@ -7,14 +7,14 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 
 ## Features
 
-- 🎭 **Playwright-powered**: Modern, reliable browser automation
-- 🧪 **Comprehensive tests**: Smoke tests, UI validation, and navigation checks
-- 🐳 **Containerized**: Full Docker support for consistent environments
-- 🤖 **CI/CD ready**: Automated runs twice daily with GitHub Actions
-- 📊 **Rich reporting**: HTML test reports auto-generate with screenshots on failure
-- ⚡ **Fast & efficient**: Optimized for quick feedback (~2m 30s in CI)
-- 📦 **uv-managed**: Fast, modern Python dependency management with a committed lockfile
-- 📝 **Fully typed**: Type hints throughout for better IDE support
+- **Playwright-powered**: Modern, reliable browser automation
+- **Comprehensive tests**: Smoke tests, UI validation, and navigation checks
+- **Containerized**: Full Docker support for consistent environments
+- **CI/CD ready**: Automated runs twice daily with GitHub Actions
+- **Rich reporting**: HTML test reports auto-generate with screenshots on failure
+- **Fast & efficient**: Optimized for quick feedback (~2m 30s in CI)
+- **uv-managed**: Fast, modern Python dependency management with a committed lockfile
+- **Fully typed**: Type hints throughout for better IDE support
 
 ## Quick Start
 
@@ -83,11 +83,15 @@ docker run --rm -v $(pwd)/test-results:/app/test-results site-sentry
 
 ```
 tests/
-├── conftest.py           # Pytest configuration and fixtures
-├── test_smoke.py         # Critical smoke tests
-├── test_ui_nav.py        # UI and navigation tests
+├── conftest.py               # Pytest configuration and fixtures
+├── smoke/
+│   ├── test_config.py        # Configuration and environment checks
+│   └── test_smoke.py         # Critical smoke tests
+├── ui/
+│   ├── test_contact_form.py  # Contact form tests
+│   └── test_ui_nav.py        # UI and navigation tests
 └── utils/
-    └── logger.py         # Logging utilities
+    └── logger.py             # Logging utilities
 ```
 
 ### Test Categories
@@ -160,7 +164,7 @@ uv run ruff format --check tests/
 
 ### Adding New Tests
 
-1. Create test file in `tests/` directory (must start with `test_`)
+1. Create the test file in the matching category directory (`tests/smoke/`, `tests/ui/`); the filename must start with `test_`
 2. Add appropriate markers (`@pytest.mark.smoke`, `@pytest.mark.ui`, etc.)
 3. Use fixtures from `conftest.py` (page, context, base_url)
 4. Add type hints and docstrings
@@ -172,21 +176,27 @@ uv run ruff format --check tests/
 site-sentry/
 ├── .github/
 │   └── workflows/
-│       └── tests.yml        # CI/CD workflow
+│       ├── ci.yml               # Lint/type-check workflow
+│       └── tests.yml            # QA test workflow (push, PR, schedule)
 ├── tests/
 │   ├── __init__.py
-│   ├── conftest.py          # Pytest configuration
-│   ├── test_smoke.py        # Smoke tests
-│   ├── test_ui_nav.py       # UI/navigation tests
+│   ├── conftest.py              # Pytest configuration
+│   ├── smoke/                   # Smoke tests
+│   ├── ui/                      # UI/navigation tests
 │   └── utils/
 │       ├── __init__.py
-│       └── logger.py        # Logging utility
-├── .env.example             # Environment template
-├── .gitignore               # Git ignore rules
-├── Dockerfile               # Container definition
-├── LICENSE                  # MIT License
-├── pyproject.toml           # Project configuration
-└── README.md                # This file
+│       └── logger.py            # Logging utility
+├── .dockerignore                # Docker build exclusions
+├── .editorconfig                # Editor formatting rules
+├── .env.example                 # Environment template
+├── .gitignore                   # Git ignore rules
+├── .python-version              # Pinned Python version (uv)
+├── CONTRIBUTING.md              # Contribution guidelines
+├── Dockerfile                   # Container definition
+├── LICENSE                      # MIT License
+├── pyproject.toml               # Project configuration
+├── uv.lock                      # Locked dependency versions
+└── README.md                    # This file
 ```
 
 ## Contributing & Standards
@@ -194,8 +204,8 @@ site-sentry/
 This project follows consistent formatting and contribution standards:
 
 - Code style and indentation enforced via [`.editorconfig`](.editorconfig)
-- Linting, formatting, and type checks handled by **Ruff** and **mypy**
-- **Strongly recommended** to use **pre-commit hooks** to ensure all checks pass before committing
+- Linting, formatting, and type checks handled by **Ruff** and **mypy**, enforced in CI
+- Pre-commit hooks are planned (#9); until then, run the checks below before committing
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming, commit style, and PR guidelines
 
 **Quick reference:**

@@ -1,6 +1,6 @@
 # Contributing to Site Sentry
 
-Thanks for checking out **Site Sentry** — a Playwright + Pytest QA suite.
+Thanks for checking out **Site Sentry** - a Playwright + Pytest QA suite.
 This guide keeps contributions consistent and the CI green.
 
 ---
@@ -11,30 +11,20 @@ This guide keeps contributions consistent and the CI green.
 # Python 3.12.13 (pinned in .python-version; uv provisions it automatically)
 uv sync
 uv run playwright install --with-deps chromium
-
-# “Pre-commit hooks are recommended for consistent formatting and linting. The CI pipeline enforces the same checks.”
-uv add --dev pre-commit
-uv run pre-commit install
-uv run pre-commit run --all-files
 ```
 
-If you have a Makefile:
-
-```bash
-make lint     # Ruff lint
-make fmt      # Ruff format
-make type     # mypy type check
-make test     # pytest (HTML/JUnit reports)
-```
-
-Without Makefile:
+Checks to run before committing (CI enforces the same ones):
 
 ```bash
 uv run ruff check .
 uv run ruff format .
 uv run mypy .
-uv run pytest -v --html=test-results/report.html --self-contained-html
+uv run pytest -v
 ```
+
+The HTML report is generated automatically (configured in `pyproject.toml`).
+Pre-commit hooks (#9) and Makefile shortcuts (#10) are planned but not yet
+available.
 
 ---
 
@@ -89,6 +79,7 @@ Closes #21
 - [ ] `mypy` passes
 - [ ] `pytest` passes locally
 - [ ] Docs updated if behavior changed
+- [ ] README structure trees updated if files were added, moved, or removed
 
 ### PR Expectations
 
@@ -104,9 +95,8 @@ Closes #21
 Artifacts:
 
 - HTML report: `test-results/report.html`
-- JUnit XML: `test-results/junit.xml`
-- Screenshots: `test-results/screenshots/`
-- Playwright traces: `test-results/playwright-traces/`
+- Screenshots on failure: `test-results/screenshots/`
+- JUnit XML output is planned (#12) but not yet generated
 
 Run locally:
 
