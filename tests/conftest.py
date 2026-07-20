@@ -19,7 +19,7 @@ from playwright.sync_api import Browser
 from playwright.sync_api import Error as PlaywrightError
 
 from tests.utils.logger import get_logger
-from tests.utils.timing import ColdNavigation
+from tests.utils.timing import FirstNavigation
 
 # Create test-results directory immediately when conftest is imported
 TEST_RESULTS_DIR = Path(__file__).parent.parent / "test-results"
@@ -29,10 +29,10 @@ TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 SLOW_TEST_THRESHOLD_SECONDS = 5.0
 
 # Ceiling for the session's first navigation. Deliberately above the
-# cold budget the test asserts, so a slow-but-completing load is
-# reported as a measured number instead of a bare timeout, and well
-# below the 30s Playwright default this replaces.
-COLD_NAVIGATION_TIMEOUT_MS = 20_000
+# budget the test asserts, so a slow-but-completing load is reported as
+# a measured number instead of a bare timeout, and well below the 30s
+# Playwright default this replaces.
+FIRST_NAVIGATION_TIMEOUT_MS = 20_000
 
 # Call-phase durations per test nodeid, collected across the session
 _test_durations: dict[str, float] = {}
@@ -44,14 +44,19 @@ logger = get_logger(__name__)
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cold_navigation(browser: Browser, base_url: str) -> ColdNavigation:
+def first_navigation(browser: Browser, base_url: str) -> FirstNavigation:
     """Measure the session's first navigation to the site under test.
 
-    Warm navigations reuse DNS, TCP, and TLS state, so a latency budget
-    asserted mid-suite cannot see the cold-path cost that a real first
-    visitor pays. This runs before any test (autouse, session scope) in
-    its own context, so exactly one navigation in the session is cold
-    and it is this one.
+    Runs before any test (autouse, session scope) in its own context, so
+    this is the one navigation taken before the suite has warmed
+    anything it can warm: connection setup (DNS, TCP, TLS) has not yet
+    happened in this process. Every later timing reuses that state.
+
+    This is deliberately not a cache-cold measurement. The site sits
+    behind a CDN whose edge cache is warm regardless of what the suite
+    does, and pytest-playwright already gives every test a fresh context
+    with an empty browser cache, so cache state is not what sets this
+    navigation apart. Connection setup is.
 
     Navigation failures are captured rather than raised: raising here
     would error every test in the session and misreport a single slow
@@ -70,13 +75,13 @@ def cold_navigation(browser: Browser, base_url: str) -> ColdNavigation:
     error: str | None = None
     start = time.perf_counter()
     try:
-        page.goto("/", wait_until="load", timeout=COLD_NAVIGATION_TIMEOUT_MS)
+        page.goto("/", wait_until="load", timeout=FIRST_NAVIGATION_TIMEOUT_MS)
     except PlaywrightError as exc:
         error = exc.message
     seconds = time.perf_counter() - start
     context.close()
-    logger.info("Cold navigation took %.2fs (error: %s)", seconds, error)
-    return ColdNavigation(seconds=seconds, error=error)
+    logger.info("First navigation took %.2fs (error: %s)", seconds, error)
+    return FirstNavigation(seconds=seconds, error=error)
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:

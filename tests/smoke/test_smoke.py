@@ -11,7 +11,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from tests.utils.logger import get_logger
-from tests.utils.timing import ColdNavigation
+from tests.utils.timing import FirstNavigation
 
 logger = get_logger(__name__)
 
@@ -22,10 +22,11 @@ logger = get_logger(__name__)
 PAGE_LOAD_TIMEOUT_MS = 15_000
 
 # Latency budget for the session's first navigation, which pays DNS,
-# TCP, and TLS setup on top of the request itself.
-COLD_LOAD_BUDGET_SECONDS = 10.0
+# TCP, and TLS setup on top of the request itself. Not a cache-cold
+# budget: the CDN edge cache is warm regardless of what the suite does.
+FIRST_NAVIGATION_BUDGET_SECONDS = 10.0
 
-# Latency budget once connection and CDN state are warm.
+# Latency budget once connection state is established by earlier tests.
 WARM_LOAD_BUDGET_SECONDS = 5.0
 
 
@@ -95,24 +96,25 @@ def test_no_console_errors(page: Page) -> None:
 
 
 @pytest.mark.smoke
-def test_cold_navigation_response_time(cold_navigation: ColdNavigation) -> None:
-    """Test the session's first navigation against the cold-path budget.
+def test_first_navigation_response_time(first_navigation: FirstNavigation) -> None:
+    """Test the session's first navigation against its latency budget.
 
     Consumes the session-scoped measurement taken before any other test
-    ran, so this is the one navigation that paid DNS, TCP, and TLS
-    setup. Every other timing in the suite is warm by comparison.
+    ran, so this is the one navigation that paid connection setup (DNS,
+    TCP, TLS) in this process. Every other timing in the suite reuses
+    that state, which is what makes this the looser of the two budgets.
 
     Args:
-        cold_navigation: Session-scoped first-navigation measurement
+        first_navigation: Session-scoped first-navigation measurement
     """
-    logger.info("Cold navigation took %.2fs", cold_navigation.seconds)
+    logger.info("First navigation took %.2fs", first_navigation.seconds)
 
-    assert cold_navigation.error is None, (
-        f"First navigation failed after {cold_navigation.seconds:.2f}s: {cold_navigation.error}"
+    assert first_navigation.error is None, (
+        f"First navigation failed after {first_navigation.seconds:.2f}s: {first_navigation.error}"
     )
-    assert cold_navigation.seconds < COLD_LOAD_BUDGET_SECONDS, (
-        f"First navigation took {cold_navigation.seconds:.2f}s "
-        f"(budget {COLD_LOAD_BUDGET_SECONDS:.0f}s)"
+    assert first_navigation.seconds < FIRST_NAVIGATION_BUDGET_SECONDS, (
+        f"First navigation took {first_navigation.seconds:.2f}s "
+        f"(budget {FIRST_NAVIGATION_BUDGET_SECONDS:.0f}s)"
     )
 
 
@@ -120,9 +122,9 @@ def test_cold_navigation_response_time(cold_navigation: ColdNavigation) -> None:
 def test_warm_response_time(page: Page) -> None:
     """Test that a warm navigation stays within the warm-path budget.
 
-    Runs mid-suite with connection and CDN state already warm, so this
-    is deliberately the tighter budget of the two: it catches steady
-    latency regressions, not the cold-path cost a first visitor pays.
+    Runs mid-suite with connection state already established, so this is
+    deliberately the tighter budget of the two: it catches steady
+    latency regressions, not the one-time connection setup cost.
 
     Args:
         page: Playwright page fixture
