@@ -148,11 +148,16 @@ in code where they read as a decision (see issues #57-61).
 
 Tests run automatically via GitHub Actions:
 
-- **On push/PR**: Every commit to main and pull requests
-- **Scheduled**: Twice daily at 6 AM and 6 PM UTC
+- **On push/PR** (`ci.yml`): Every commit to main and pull requests, across a
+  browser matrix of Chromium, Firefox, and WebKit so a rendering bug in any one
+  engine is caught. Also runs lint, type-check, and a Docker smoke test.
+- **Scheduled** (`tests.yml`): Twice daily at 6 AM and 6 PM UTC, Chromium only.
+  This is availability monitoring whose result drives the site-down incident
+  issue, so it stays single-browser deliberately.
 - **Manual**: Via workflow_dispatch
 
-Test results and HTML reports are uploaded as artifacts and retained for 30 days.
+Test results and HTML reports are uploaded as artifacts (one per browser on
+push/PR) and retained for 30 days.
 
 ## Development
 
@@ -183,8 +188,8 @@ uv run ruff format --check tests/
 site-sentry/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml               # Lint/type-check workflow
-│       └── tests.yml            # QA test workflow (push, PR, schedule)
+│       ├── ci.yml               # Push/PR: lint, type-check, docker, browser-matrix tests
+│       └── tests.yml            # Scheduled QA monitoring (Chromium only) + incident alerts
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py              # Pytest configuration
