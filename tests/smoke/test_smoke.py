@@ -4,26 +4,46 @@ Fast, critical tests that verify core functionality and site availability.
 These tests should run quickly and catch major breakages.
 """
 
+import time
 from typing import Any
 
 import pytest
 from playwright.sync_api import Page, expect
 
 from tests.utils.logger import get_logger
+from tests.utils.timing import ColdNavigation
 
 logger = get_logger(__name__)
+
+# Availability ceiling for a warm navigation. Chosen deliberately to
+# replace the implicit 30s Playwright default that previously acted as
+# the de facto performance gate: warm loads are consistently sub-second,
+# so 15s is failure territory, not slowness.
+PAGE_LOAD_TIMEOUT_MS = 15_000
+
+# Latency budget for the session's first navigation, which pays DNS,
+# TCP, and TLS setup on top of the request itself.
+COLD_LOAD_BUDGET_SECONDS = 10.0
+
+# Latency budget once connection and CDN state are warm.
+WARM_LOAD_BUDGET_SECONDS = 5.0
 
 
 @pytest.mark.smoke
 def test_homepage_loads(page: Page) -> None:
-    """Test that the homepage loads successfully.
+    """Test that the homepage is reachable and returns a healthy status.
+
+    This is the availability check, not the performance gate: it asks
+    only whether the page loaded. The explicit timeout is a deliberate
+    ceiling on "never arrived", and the latency budgets live in the
+    response-time tests so a failure names which property broke.
 
     Args:
         page: Playwright page fixture
     """
     logger.info("Testing homepage load")
 
-    response = page.goto("/")
+    response = page.goto("/", timeout=PAGE_LOAD_TIMEOUT_MS)
     assert response is not None, "No response received"
     assert response.ok, f"Response not OK: {response.status}"
 
@@ -75,24 +95,48 @@ def test_no_console_errors(page: Page) -> None:
 
 
 @pytest.mark.smoke
-def test_response_time(page: Page) -> None:
-    """Test that the homepage loads within acceptable time.
+def test_cold_navigation_response_time(cold_navigation: ColdNavigation) -> None:
+    """Test the session's first navigation against the cold-path budget.
+
+    Consumes the session-scoped measurement taken before any other test
+    ran, so this is the one navigation that paid DNS, TCP, and TLS
+    setup. Every other timing in the suite is warm by comparison.
+
+    Args:
+        cold_navigation: Session-scoped first-navigation measurement
+    """
+    logger.info("Cold navigation took %.2fs", cold_navigation.seconds)
+
+    assert cold_navigation.error is None, (
+        f"First navigation failed after {cold_navigation.seconds:.2f}s: {cold_navigation.error}"
+    )
+    assert cold_navigation.seconds < COLD_LOAD_BUDGET_SECONDS, (
+        f"First navigation took {cold_navigation.seconds:.2f}s "
+        f"(budget {COLD_LOAD_BUDGET_SECONDS:.0f}s)"
+    )
+
+
+@pytest.mark.smoke
+def test_warm_response_time(page: Page) -> None:
+    """Test that a warm navigation stays within the warm-path budget.
+
+    Runs mid-suite with connection and CDN state already warm, so this
+    is deliberately the tighter budget of the two: it catches steady
+    latency regressions, not the cold-path cost a first visitor pays.
 
     Args:
         page: Playwright page fixture
     """
-    logger.info("Testing page load time")
+    logger.info("Testing warm page load time")
 
-    import time
-
-    start_time = time.time()
-
-    response = page.goto("/", wait_until="load")
-
-    load_time = time.time() - start_time
+    start_time = time.perf_counter()
+    response = page.goto("/", wait_until="load", timeout=PAGE_LOAD_TIMEOUT_MS)
+    load_time = time.perf_counter() - start_time
 
     assert response is not None, "No response received"
-    assert load_time < 5.0, f"Page took {load_time:.2f}s to load (expected < 5s)"
+    assert load_time < WARM_LOAD_BUDGET_SECONDS, (
+        f"Warm navigation took {load_time:.2f}s (budget {WARM_LOAD_BUDGET_SECONDS:.0f}s)"
+    )
 
     logger.info("Page loaded in %.2fs", load_time)
 
