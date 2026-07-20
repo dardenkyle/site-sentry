@@ -4,8 +4,11 @@ This module provides shared fixtures for Playwright browser automation,
 configuration management, and test utilities.
 """
 
+import json
 import os
+import statistics
 from collections.abc import Generator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,10 +21,62 @@ from tests.utils.logger import get_logger
 TEST_RESULTS_DIR = Path(__file__).parent.parent / "test-results"
 TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Tests slower than this count toward slow_count in durations.json
+SLOW_TEST_THRESHOLD_SECONDS = 5.0
+
+# Call-phase durations per test nodeid, collected across the session
+_test_durations: dict[str, float] = {}
+
 # Load environment variables
 load_dotenv()
 
 logger = get_logger(__name__)
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Record the call-phase duration of every test.
+
+    Setup and teardown phases are excluded so the numbers reflect what
+    the test itself did (navigation, requests, assertions), not fixture
+    overhead. Durations feed durations.json at session end.
+
+    Args:
+        report: Per-phase report emitted by pytest for each test
+    """
+    if report.when == "call":
+        _test_durations[report.nodeid] = report.duration
+
+
+def _write_durations_file() -> None:
+    """Aggregate collected durations and write test-results/durations.json.
+
+    The 30s-timeout investigation (#58) showed the suite's duration
+    distribution drifting toward the Playwright timeout with zero warning,
+    because pass/fail discards timing. This persists per-test durations
+    plus aggregates every run, so drift shows up as a trend in the
+    uploaded artifacts weeks before it trips timeouts. Stdlib only.
+    """
+    durations = sorted(_test_durations.values())
+    if len(durations) >= 2:
+        # method="inclusive" interpolates within the observed range, so
+        # p95 can never exceed max_duration as the default method can
+        p95 = statistics.quantiles(durations, n=20, method="inclusive")[-1]
+    else:
+        p95 = durations[0]
+    run_number = os.getenv("GITHUB_RUN_NUMBER")
+    payload = {
+        "run_id": os.getenv("GITHUB_RUN_ID", "local"),
+        "run_number": int(run_number) if run_number else None,
+        "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+        "durations": {nodeid: round(d, 3) for nodeid, d in sorted(_test_durations.items())},
+        "max_duration": round(durations[-1], 3),
+        "median_duration": round(statistics.median(durations), 3),
+        "p95_duration": round(p95, 3),
+        "slow_count": sum(1 for d in durations if d > SLOW_TEST_THRESHOLD_SECONDS),
+    }
+    durations_path = TEST_RESULTS_DIR / "durations.json"
+    durations_path.write_text(json.dumps(payload, indent=2) + "\n")
+    logger.info("Duration metrics saved: %s", durations_path)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -29,9 +84,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> Generator[
     """Ensure test-results directory exists before HTML report writes.
 
     The hookwrapper=True makes this run around other sessionfinish hooks,
-    and we recreate the directory right before yielding control.
+    and we recreate the directory right before yielding control. Duration
+    metrics are written here too, once all test reports are in.
     """
     TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    if _test_durations:
+        _write_durations_file()
     yield
     # Directory created, now pytest-html can write
 
