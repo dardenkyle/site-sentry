@@ -69,6 +69,106 @@ jobs:
           path: test-results/report.html
           retention-days: 30
 
+  # Extract -> transform -> load -> serve. The pytest run above already
+  # extracted this run's raw artifacts; this job transforms them into one
+  # canonical record, loads it into the durable store (an orphan
+  # metrics-data branch, one JSON per run, partitioned by date), and
+  # serves the whole history as a GitHub Pages dashboard. Runs even when
+  # the test job failed, on purpose: a failed run is a data point the
+  # trend should show, not a gap. The store is git, so history survives
+  # the 30-day artifact retention that would otherwise erase it.
+  publish:
+    name: Publish metrics and dashboard
+    runs-on: ubuntu-latest
+    needs: test
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    # Serialize store writes so a re-run racing the next scheduled run
+    # cannot interleave two pushes to metrics-data and lose one.
+    concurrency:
+      group: metrics-store
+      cancel-in-progress: false
+    permissions:
+      contents: write # push run records to the metrics-data branch
+      pages: write # deploy the dashboard
+      id-token: write # required by deploy-pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      STORE_BRANCH: metrics-data
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv and Python 3.12.13
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12.13"
+
+      - run: uv sync --locked
+
+      # This run's raw artifacts come from the test job. Tolerate their
+      # absence: a run that died before uploading still gets a record,
+      # keyed off the CI run id, so the outage is visible in the history.
+      - name: Download this run's test results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: test-results
+          path: test-results
+
+      - name: Transform and load the run record into the store
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          repo_url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          # Clone the store branch, or start it as an empty orphan on the
+          # very first run so this bootstraps without manual setup.
+          if git clone -q --branch "$STORE_BRANCH" --single-branch "$repo_url" store; then
+            echo "Checked out existing $STORE_BRANCH"
+          else
+            rm -rf store
+            git clone -q --depth 1 --single-branch "$repo_url" store
+            git -C store checkout -q --orphan "$STORE_BRANCH"
+            git -C store rm -rq --cached -- . || true
+            find store -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            echo "Initialized new $STORE_BRANCH"
+          fi
+
+          # TRANSFORM + LOAD: normalize the artifacts into a record under
+          # the store, keyed by run id so a re-run overwrites in place.
+          uv run python -m pipeline.transform --results-dir test-results --store-dir store
+
+          git -C store add runs
+          if git -C store diff --cached --quiet; then
+            echo "Record already present; store unchanged (idempotent re-run)"
+          else
+            git -C store commit -q -m "data: metrics for run ${GITHUB_RUN_ID} (${GITHUB_EVENT_NAME})"
+            git -C store push -q origin "$STORE_BRANCH"
+          fi
+
+      - name: Build the dashboard site
+        run: |
+          set -euo pipefail
+          # SERVE: fold the whole store into history.json beside the
+          # static dashboard, so the page charts all runs, not the latest.
+          mkdir -p site
+          cp dashboard/index.html site/index.html
+          uv run python -m pipeline.aggregate --store-dir store --out site/history.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
   # A red X in the Actions tab is not an alert: any scheduled run that
   # does not succeed (failure, timeout, cancellation) opens or updates
   # a single site-down incident issue, and the next passing scheduled

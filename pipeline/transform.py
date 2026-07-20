@@ -149,18 +149,23 @@ def navigation_stats(navigation: dict[str, Any] | None) -> NavigationStats:
 
 
 def _run_identity(
-    durations: dict[str, Any] | None, navigation: dict[str, Any] | None
+    durations: dict[str, Any] | None,
+    navigation: dict[str, Any] | None,
+    env: Mapping[str, str],
 ) -> tuple[str, int | None, str]:
-    """Resolve run_id, run_number, and timestamp from whichever artifact has them.
+    """Resolve run_id, run_number, and timestamp from whichever source has them.
 
     Both metrics files carry the same identity block (conftest writes it
     from one helper), so either answers; durations is preferred and
     navigation is the fallback for a run that wrote only one. A run that
-    wrote neither is stamped now with a local id so it still records.
+    wrote neither - it died before pytest emitted any artifact - still
+    needs the real CI run id so its record keys and dedupes correctly, so
+    the environment is the last resort before the "local" default.
 
     Args:
         durations: Parsed durations.json, or None
         navigation: Parsed navigation.json, or None
+        env: Environment mapping, read for GITHUB_RUN_ID/GITHUB_RUN_NUMBER
 
     Returns:
         The run id, run number (or None), and ISO-8601 UTC timestamp
@@ -168,7 +173,12 @@ def _run_identity(
     for src in (durations, navigation):
         if src and src.get("run_id") and src.get("timestamp"):
             return src["run_id"], src.get("run_number"), src["timestamp"]
-    return "local", None, datetime.now(UTC).isoformat(timespec="seconds")
+    run_number = env.get("GITHUB_RUN_NUMBER")
+    return (
+        env.get("GITHUB_RUN_ID", "local"),
+        int(run_number) if run_number else None,
+        datetime.now(UTC).isoformat(timespec="seconds"),
+    )
 
 
 def build_run_record(
@@ -197,7 +207,7 @@ def build_run_record(
         counts, cases, wall_s = parse_junit(junit_root)
     else:
         counts, cases, wall_s = TestCounts(0, 0, 0, 0, 0, None), [], None
-    run_id, run_number, timestamp = _run_identity(durations, navigation)
+    run_id, run_number, timestamp = _run_identity(durations, navigation, env)
     return RunRecord(
         schema_version=SCHEMA_VERSION,
         run_id=run_id,

@@ -162,6 +162,15 @@ def test_run_identity_prefers_durations_then_navigation() -> None:
     assert neither.run_number is None
 
 
+def test_run_identity_falls_back_to_ci_env_when_no_artifacts() -> None:
+    # A run that died before any artifact was written still keys on the
+    # real CI run id, so its record dedupes instead of colliding on "local".
+    env = {"GITHUB_RUN_ID": "99999", "GITHUB_RUN_NUMBER": "7"}
+    record = build_run_record(None, None, None, env)
+    assert record.run_id == "99999"
+    assert record.run_number == 7
+
+
 def test_partition_path_is_date_partitioned_and_run_keyed() -> None:
     record = build_run_record(DURATIONS, NAVIGATION, None, {})
     assert partition_path(record) == Path("runs/dt=2026-07-20/run-12345.json")
