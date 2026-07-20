@@ -176,6 +176,7 @@ def test_https_redirect(page: Page, base_url: str) -> None:
         page: Playwright page fixture
         base_url: Base URL of the site under test
     """
+    expected_host = urlsplit(base_url).hostname
     if urlsplit(base_url).scheme != "https":
         pytest.skip(f"Base URL is not HTTPS, no redirect to verify: {base_url}")
     if is_local(base_url):
@@ -188,8 +189,14 @@ def test_https_redirect(page: Page, base_url: str) -> None:
 
     assert response is not None, "No response received"
 
-    # Check that we ended up on HTTPS
-    final_url = page.url
-    assert final_url.startswith("https://"), f"Expected HTTPS, got: {final_url}"
+    # Check that we ended up on HTTPS, still on the configured target.
+    # The host matters as much as the scheme: a redirect that lands
+    # somewhere else (production, a parked domain) would otherwise pass
+    # while reporting on a site this run was not asked to test.
+    final = urlsplit(page.url)
+    assert final.scheme == "https", f"Expected HTTPS, got: {page.url}"
+    assert final.hostname == expected_host, (
+        f"Redirect left the configured target: expected host {expected_host}, got {page.url}"
+    )
 
-    logger.info("Successfully redirected to: %s", final_url)
+    logger.info("Successfully redirected to: %s", page.url)

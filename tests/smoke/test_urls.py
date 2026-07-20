@@ -6,6 +6,8 @@ issue #28, where test_https_redirect contacted production regardless of
 BASE_URL. Runs offline: no browser, no network.
 """
 
+from urllib.parse import urlsplit
+
 import pytest
 
 from tests.utils.urls import http_variant, is_local
@@ -38,15 +40,27 @@ def test_http_variant_preserves_target(configured_url: str, expected: str) -> No
 
 
 @pytest.mark.smoke
-def test_http_variant_never_reaches_production_for_other_targets() -> None:
+@pytest.mark.parametrize(
+    "configured_url",
+    [
+        "https://staging.example.com",
+        # A host that merely contains the production name must not be
+        # mistaken for it, which a substring check would get wrong
+        "https://staging.kyledarden.com",
+    ],
+)
+def test_http_variant_never_reaches_production_for_other_targets(configured_url: str) -> None:
     """Test that a non-production base URL yields no production target.
 
     This is the acceptance criterion of issue #28 stated directly: a run
-    pointed at staging must not contact kyledarden.com.
-    """
-    derived = http_variant("https://staging.example.com")
+    pointed elsewhere must not contact kyledarden.com itself.
 
-    assert PRODUCTION_HOST not in derived, f"Derived URL leaks production host: {derived}"
+    Args:
+        configured_url: Base URL a run could be pointed at
+    """
+    derived_host = urlsplit(http_variant(configured_url)).hostname
+
+    assert derived_host != PRODUCTION_HOST, f"Derived URL leaks production host: {derived_host}"
 
 
 @pytest.mark.smoke
