@@ -260,7 +260,13 @@ def test_page_scroll(page: Page) -> None:
         pytest.skip("Page is too short to scroll")
 
     initial_scroll = page.evaluate("window.pageYOffset")
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
+    # Scroll by wheel input, the way a real visitor does, rather than a
+    # programmatic window.scrollTo(): WebKit headless silently ignores
+    # window.scrollTo while honoring wheel and trackpad input, so the
+    # JS-only path reported the page as unscrollable on Safari's engine
+    # when it scrolls there just fine. One viewport of delta is enough to
+    # register movement given the page is taller than the viewport above.
+    page.mouse.wheel(0, viewport_height)
 
     # Wait for the scroll to actually take effect instead of sleeping a
     # fixed interval: this waits on the condition itself, so it tolerates
