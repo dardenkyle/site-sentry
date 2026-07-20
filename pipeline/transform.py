@@ -52,7 +52,10 @@ def load_json(path: Path) -> dict[str, Any] | None:
     result: dict[str, Any] | None = None
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        # A half-written file can be invalid UTF-8, not just invalid JSON;
+        # UnicodeDecodeError from read_text must be swallowed too, or a
+        # truncated artifact crashes the transform instead of degrading.
         loaded = None
     if isinstance(loaded, dict):
         result = loaded

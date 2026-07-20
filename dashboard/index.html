@@ -192,9 +192,18 @@ function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+// history.json is external input (fetched, and committed by CI from
+// Playwright error text and git metadata). Escape any string from it
+// before it lands in innerHTML so a tampered or unusual value - a nav
+// error carrying markup, say - cannot inject into the page.
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function fmtDate(iso, withTime) {
   const d = new Date(iso);
-  if (isNaN(d)) return iso || "—";
+  if (isNaN(d)) return esc(iso || "—");
   const opts = withTime
     ? { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
     : { month: "short", day: "numeric" };
@@ -395,7 +404,7 @@ function renderIncident(history) {
   if (!inc) {
     return `<div class="card incident-card"><h2>Last incident</h2><p class="none">✓ No incident on record — every tracked run passed.</p></div>`;
   }
-  const reason = inc.nav_error ? `Navigation failed: ${inc.nav_error}`
+  const reason = inc.nav_error ? `Navigation failed: ${esc(inc.nav_error)}`
     : `${inc.failed || 0} failed, ${inc.errors || 0} errored`;
   return `<div class="card incident-card">
     <h2>Last incident</h2>
@@ -403,7 +412,7 @@ function renderIncident(history) {
       <dt>When</dt><dd>${fmtDate(inc.timestamp, true)} (${relTime(inc.timestamp)})</dd>
       <dt>What</dt><dd>${reason}</dd>
       <dt>Pass rate</dt><dd>${inc.pass_rate != null ? Math.round(inc.pass_rate * 1000) / 10 + "%" : "—"}</dd>
-      <dt>Run</dt><dd>${inc.run_number != null ? "#" + inc.run_number : "—"}${inc.commit_sha ? " · <code>" + inc.commit_sha.slice(0, 7) + "</code>" : ""}</dd>
+      <dt>Run</dt><dd>${inc.run_number != null ? "#" + inc.run_number : "—"}${inc.commit_sha ? " · <code>" + esc(String(inc.commit_sha).slice(0, 7)) + "</code>" : ""}</dd>
     </dl></div>`;
 }
 

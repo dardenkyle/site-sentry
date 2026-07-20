@@ -191,6 +191,10 @@ def test_load_json_tolerates_missing_and_corrupt(tmp_path: Path) -> None:
     corrupt = tmp_path / "bad.json"
     corrupt.write_text("{not json", encoding="utf-8")
     assert load_json(corrupt) is None
+    # A half-written file can be invalid UTF-8, which read_text raises on.
+    non_utf8 = tmp_path / "truncated.json"
+    non_utf8.write_bytes(b'{"a": "\xff\xfe"}')
+    assert load_json(non_utf8) is None
     valid = tmp_path / "ok.json"
     valid.write_text('{"a": 1}', encoding="utf-8")
     assert load_json(valid) == {"a": 1}

@@ -118,6 +118,8 @@ def test_load_records_reads_partitions_and_skips_corrupt(tmp_path: Path) -> None
     good_dir.mkdir(parents=True)
     (good_dir / "run-1.json").write_text(json.dumps(_record("1", "2026-07-20T06:00:00+00:00")))
     (good_dir / "run-bad.json").write_text("{broken", encoding="utf-8")
+    # A half-written record can be invalid UTF-8, not just invalid JSON.
+    (good_dir / "run-truncated.json").write_bytes(b'{"run_id": "\xff"}')
     records = load_records(tmp_path)
     assert len(records) == 1
     assert records[0]["run_id"] == "1"

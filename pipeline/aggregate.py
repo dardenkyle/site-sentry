@@ -41,7 +41,10 @@ def load_records(store_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(store_dir.glob(RUNS_GLOB)):
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            # A half-written record can be invalid UTF-8, not just invalid
+            # JSON; catching UnicodeDecodeError too keeps one truncated
+            # partition from aborting the whole aggregation.
             loaded = None
         if isinstance(loaded, dict):
             records.append(loaded)
