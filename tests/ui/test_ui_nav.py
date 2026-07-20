@@ -173,26 +173,24 @@ def test_images_load(page: Page) -> None:
     """
     logger.info("Testing image loading")
 
-    page.goto("/")
+    page.goto("/", wait_until="load")
 
-    # Wait for images to load
-    page.wait_for_load_state("networkidle")
+    # The load event waits for the initial HTML's eager images, so any
+    # image the browser reports as complete has finished fetching; a
+    # complete image with zero natural width is a broken resource. This
+    # checks load success directly instead of waiting on the network to idle,
+    # which the Playwright docs discourage and which hangs on pages with
+    # analytics beacons, and it does not fail on lazy images below the
+    # fold, which are simply not complete yet.
+    broken_images = page.evaluate(
+        """() => Array.from(document.images)
+            .filter(img => img.complete && img.naturalWidth === 0)
+            .map(img => img.currentSrc || img.src || '(no src)')"""
+    )
+    assert not broken_images, f"Broken images failed to load: {broken_images}"
 
     images = page.locator("img").all()
-    image_count = len(images)
-
-    if image_count > 0:
-        logger.info("Found %d images", image_count)
-
-        # Check that images have src attributes
-        for img in images[:5]:  # Test first 5 images
-            src = img.get_attribute("src")
-            assert src, "Image missing src attribute"
-            assert len(src) > 0, "Image has empty src attribute"
-
-        logger.info("Image sources are valid")
-    else:
-        logger.info("No images found on page")
+    logger.info("Found %d images, none broken", len(images))
 
 
 @pytest.mark.ui
@@ -251,29 +249,27 @@ def test_page_scroll(page: Page) -> None:
     """
     logger.info("Testing page scroll functionality")
 
-    page.goto("/")
+    page.goto("/", wait_until="load")
 
-    # Get initial scroll position
-    initial_scroll = page.evaluate("window.pageYOffset")
-
-    # Scroll down
-    page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
-
-    # Wait a moment for scroll to complete
-    page.wait_for_timeout(500)
-
-    # Get new scroll position
-    new_scroll = page.evaluate("window.pageYOffset")
-
-    # If page is long enough, scroll position should have changed
+    # Nothing to assert on a page that cannot scroll; skip rather than
+    # pass vacuously, and skip before scrolling so the wait below always
+    # has a real change to wait for.
     page_height = page.evaluate("document.body.scrollHeight")
     viewport_height = page.evaluate("window.innerHeight")
+    if page_height <= viewport_height:
+        pytest.skip("Page is too short to scroll")
 
-    if page_height > viewport_height:
-        assert new_scroll > initial_scroll, "Page did not scroll"
-        logger.info("Page scrolled from %d to %d", initial_scroll, new_scroll)
-    else:
-        logger.info("Page is too short to scroll")
+    initial_scroll = page.evaluate("window.pageYOffset")
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight / 2)")
+
+    # Wait for the scroll to actually take effect instead of sleeping a
+    # fixed interval: this waits on the condition itself, so it tolerates
+    # smooth-scroll behavior without the flakiness of a guessed duration.
+    page.wait_for_function("start => window.pageYOffset > start", arg=initial_scroll)
+
+    new_scroll = page.evaluate("window.pageYOffset")
+    assert new_scroll > initial_scroll, "Page did not scroll"
+    logger.info("Page scrolled from %d to %d", initial_scroll, new_scroll)
 
 
 @pytest.mark.ui
@@ -293,9 +289,12 @@ def test_no_broken_styles(page: Page) -> None:
                 failed_resources.append(response.url)
                 logger.warning("Failed to load stylesheet: %s", response.url)
 
+    # The listener is attached before navigating, and stylesheets are
+    # render-blocking, so every stylesheet response has arrived by the
+    # load event. Waiting for the load event rather than for the network
+    # to fall idle captures them all without hanging on late beacons.
     page.on("response", handle_response)
-    page.goto("/")
-    page.wait_for_load_state("networkidle")
+    page.goto("/", wait_until="load")
 
     assert len(failed_resources) == 0, (
         f"Failed to load {len(failed_resources)} stylesheets: {failed_resources}"
