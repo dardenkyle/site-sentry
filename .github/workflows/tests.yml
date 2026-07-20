@@ -16,6 +16,13 @@ jobs:
     name: Run QA Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Consumed by the alert job to pick incident severity and name the
+    # failing tests; populated from junit.xml even when this job fails
+    outputs:
+      has_results: ${{ steps.failures.outputs.has_results }}
+      failed_count: ${{ steps.failures.outputs.failed_count }}
+      smoke_failed: ${{ steps.failures.outputs.smoke_failed }}
+      failed_tests: ${{ steps.failures.outputs.failed_tests }}
 
     steps:
       - name: Checkout repository
@@ -34,8 +41,13 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run pytest -v --tracing retain-on-failure
+          uv run pytest -v --tracing retain-on-failure --junitxml=test-results/junit.xml
         continue-on-error: false
+
+      - name: Summarize failures for the alert job
+        id: failures
+        if: always()
+        run: uv run python .github/scripts/summarize_failures.py >> "$GITHUB_OUTPUT"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -74,26 +86,55 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       TEST_RESULT: ${{ needs.test.result }}
+      HAS_RESULTS: ${{ needs.test.outputs.has_results }}
+      FAILED_COUNT: ${{ needs.test.outputs.failed_count }}
+      SMOKE_FAILED: ${{ needs.test.outputs.smoke_failed }}
+      FAILED_TESTS: ${{ needs.test.outputs.failed_tests }}
     steps:
+      # "Site down" is reserved for smoke-test failures; anything else is
+      # reported as what it is (failing QA tests, or a run that produced
+      # no results at all). The site-down label is the incident marker
+      # for the open/comment/close lifecycle regardless of severity.
       - name: Open or update incident issue
         if: needs.test.result != 'success'
         run: |
+          if [ "$SMOKE_FAILED" = "true" ]; then
+            title="Site down: scheduled smoke tests failing"
+            assessment="Smoke tests against the live site failed, so the site is likely down or broken."
+          elif [ "$HAS_RESULTS" = "true" ] && [ "${FAILED_COUNT:-0}" -gt 0 ]; then
+            title="QA run failed: $FAILED_COUNT test(s) failing"
+            assessment="Smoke tests passed; the failures are in non-smoke tests, so the site itself is likely up."
+          else
+            title="QA run failed: no test results produced (result: $TEST_RESULT)"
+            assessment="The run ended without a test report (setup failure, timeout, or cancellation), so site status is unknown."
+          fi
+          if [ -n "$FAILED_TESTS" ]; then
+            failing=$(printf '%s\n' "$FAILED_TESTS" | sed 's/^/- `/; s/$/`/')
+          else
+            failing="- (no per-test results available)"
+          fi
+          details="$assessment
+
+          Failing tests:
+          $failing
+
+          - Run: $RUN_URL
+          - The \`html-report\` and \`test-results\` artifacts on the run have per-test details and Playwright traces."
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
             --label site-down --state open \
             --json number --jq '.[0].number // empty')
           if [ -z "$existing" ]; then
             gh issue create --repo "$GITHUB_REPOSITORY" \
-              --title "Site down: scheduled QA run did not succeed" \
+              --title "$title" \
               --label site-down \
-              --body "The scheduled QA run against the live site did not succeed (result: $TEST_RESULT).
-
-          - Run: $RUN_URL
-          - The \`html-report\` artifact on the run has per-test details.
+              --body "$details
 
           This issue is managed automatically: further unsuccessful scheduled runs add comments here, and the next passing scheduled run closes it."
           else
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
-              --body "Still not passing (result: $TEST_RESULT): $RUN_URL"
+              --body "Still failing: $title
+
+          $details"
           fi
 
       - name: Close incident issue on recovery
