@@ -32,8 +32,17 @@ TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 # Tests slower than this count toward slow_count in durations.json
 SLOW_TEST_THRESHOLD_SECONDS = 5.0
 
-# Call-phase durations per test nodeid, collected across the session
-_test_durations: dict[str, float] = {}
+# Retry budget for smoke tests, which run against a live site and can
+# lose a request to a transient stall. Scoped to smoke deliberately:
+# retries buy noise reduction by discarding evidence, which is only
+# worth it for the availability signal that gates incident alerts.
+SMOKE_RERUNS = 2
+SMOKE_RERUN_DELAY_SECONDS = 5
+
+# Call-phase duration and outcome per attempt, keyed by test nodeid.
+# A retried test appends rather than overwrites, so the slow attempt
+# that triggered the retry survives into durations.json.
+_test_durations: dict[str, list[tuple[float, str]]] = {}
 
 # Load environment variables
 load_dotenv()
@@ -102,18 +111,40 @@ def first_navigation(browser: Browser, base_url: str) -> FirstNavigation:
     return FirstNavigation(seconds=seconds, error=error)
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Grant smoke tests a retry budget, and nothing else.
+
+    Retries are applied here rather than via a global --reruns flag so
+    they cannot silently extend to the UI suite, where a rerun would
+    mask a real regression instead of a transient network stall.
+
+    Tests marked no_rerun are skipped: a test whose verdict comes from a
+    session-scoped measurement re-reads the same cached value on every
+    attempt, so retrying it only burns the rerun delay.
+
+    Args:
+        items: Collected test items, mutated in place
+    """
+    retry = pytest.mark.flaky(reruns=SMOKE_RERUNS, reruns_delay=SMOKE_RERUN_DELAY_SECONDS)
+    for item in items:
+        if item.get_closest_marker("smoke") and not item.get_closest_marker("no_rerun"):
+            item.add_marker(retry)
+
+
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """Record the call-phase duration of every test.
+    """Record the call-phase duration and outcome of every attempt.
 
     Setup and teardown phases are excluded so the numbers reflect what
     the test itself did (navigation, requests, assertions), not fixture
-    overhead. Durations feed durations.json at session end.
+    overhead. Attempts append rather than overwrite: a retried test
+    would otherwise report only its fast passing attempt, hiding the
+    stall that caused the retry. Durations feed durations.json.
 
     Args:
-        report: Per-phase report emitted by pytest for each test
+        report: Per-phase report emitted by pytest for each attempt
     """
     if report.when == "call":
-        _test_durations[report.nodeid] = report.duration
+        _test_durations.setdefault(report.nodeid, []).append((report.duration, report.outcome))
 
 
 def _write_durations_file() -> None:
@@ -124,8 +155,22 @@ def _write_durations_file() -> None:
     because pass/fail discards timing. This persists per-test durations
     plus aggregates every run, so drift shows up as a trend in the
     uploaded artifacts weeks before it trips timeouts. Stdlib only.
+
+    Per-test durations report the slowest attempt, not the last one, so
+    a stall that a retry papered over still lands in the file and in the
+    aggregates. Every attempt of a retried test is preserved in full
+    under "retried".
     """
-    durations = sorted(_test_durations.values())
+    worst = {nodeid: max(d for d, _ in attempts) for nodeid, attempts in _test_durations.items()}
+    retried = {
+        nodeid: [
+            {"attempt": i, "duration": round(d, 3), "outcome": outcome}
+            for i, (d, outcome) in enumerate(attempts, start=1)
+        ]
+        for nodeid, attempts in sorted(_test_durations.items())
+        if len(attempts) > 1
+    }
+    durations = sorted(worst.values())
     if len(durations) >= 2:
         # method="inclusive" interpolates within the observed range, so
         # p95 can never exceed max_duration as the default method can
@@ -137,7 +182,9 @@ def _write_durations_file() -> None:
         "run_id": os.getenv("GITHUB_RUN_ID", "local"),
         "run_number": int(run_number) if run_number else None,
         "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
-        "durations": {nodeid: round(d, 3) for nodeid, d in sorted(_test_durations.items())},
+        "durations": {nodeid: round(d, 3) for nodeid, d in sorted(worst.items())},
+        "retried": retried,
+        "retried_count": len(retried),
         "max_duration": round(durations[-1], 3),
         "median_duration": round(statistics.median(durations), 3),
         "p95_duration": round(p95, 3),
@@ -244,6 +291,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "smoke: Quick smoke tests")
     config.addinivalue_line("markers", "ui: UI interaction tests")
     config.addinivalue_line("markers", "slow: Long-running tests")
+    config.addinivalue_line("markers", "no_rerun: Exempt from the smoke retry budget")
 
     # Create test results directory
     results_dir = os.getenv("TEST_RESULTS_DIR", "test-results")

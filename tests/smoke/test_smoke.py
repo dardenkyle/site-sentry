@@ -91,6 +91,7 @@ def test_no_console_errors(page: Page) -> None:
 
 
 @pytest.mark.smoke
+@pytest.mark.no_rerun
 def test_first_navigation_response_time(first_navigation: FirstNavigation) -> None:
     """Test the session's first navigation against its latency budget.
 
@@ -98,6 +99,10 @@ def test_first_navigation_response_time(first_navigation: FirstNavigation) -> No
     ran, so this is the one navigation that paid connection setup (DNS,
     TCP, TLS) in this process. Every other timing in the suite reuses
     that state, which is what makes this the looser of the two budgets.
+
+    Exempt from the smoke retry budget: the measurement is taken once
+    per session, so a rerun would re-assert the identical cached value
+    and only burn the rerun delay.
 
     Args:
         first_navigation: Session-scoped first-navigation measurement
