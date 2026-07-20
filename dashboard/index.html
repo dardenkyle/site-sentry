@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>site-sentry — uptime &amp; performance</title>
+<style>
+  :root {
+    color-scheme: light;
+    --plane:        #f9f9f7;
+    --surface:      #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary:#52514e;
+    --muted:        #898781;
+    --grid:         #e1e0d9;
+    --axis:         #c3c2b7;
+    --border:       rgba(11,11,11,0.10);
+    --series-1:     #2a78d6; /* TTFB / pass-rate */
+    --series-2:     #eb6834; /* DOM content loaded */
+    --series-3:     #1baf7a; /* load */
+    --good:         #0ca30c;
+    --critical:     #d03b3b;
+    --good-ink:     #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --plane:        #0d0d0d;
+      --surface:      #1a1a19;
+      --text-primary: #ffffff;
+      --text-secondary:#c3c2b7;
+      --muted:        #898781;
+      --grid:         #2c2c2a;
+      --axis:         #383835;
+      --border:       rgba(255,255,255,0.10);
+      --series-1:     #3987e5;
+      --series-2:     #d95926;
+      --series-3:     #199e70;
+      --good:         #0ca30c;
+      --critical:     #d03b3b;
+      --good-ink:     #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane:        #0d0d0d;
+    --surface:      #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary:#c3c2b7;
+    --muted:        #898781;
+    --grid:         #2c2c2a;
+    --axis:         #383835;
+    --border:       rgba(255,255,255,0.10);
+    --series-1:     #3987e5;
+    --series-2:     #d95926;
+    --series-3:     #199e70;
+    --good-ink:     #0ca30c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 1.5rem; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-secondary); font-size: 0.9rem; margin: 0; }
+  .head-right { display: flex; align-items: center; gap: 12px; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 0.85rem;
+    border: 1px solid var(--border);
+  }
+  .status-badge .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .status-up   { color: var(--good-ink); }
+  .status-up   .dot { background: var(--good); }
+  .status-down { color: var(--critical); }
+  .status-down .dot { background: var(--critical); }
+
+  .theme-toggle {
+    background: var(--surface); color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 8px;
+    width: 34px; height: 34px; cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  .theme-toggle:hover { color: var(--text-primary); }
+
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0; }
+  @media (max-width: 640px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .tile .label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tile .value { font-size: 1.55rem; font-weight: 650; margin-top: 4px; }
+  .tile .value small { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+  .tile .note { color: var(--text-secondary); font-size: 0.78rem; margin-top: 2px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 18px 8px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 0.95rem; margin: 0 0 2px; }
+  .card .cap { color: var(--text-secondary); font-size: 0.82rem; margin: 0 0 6px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 0; padding: 0; list-style: none; font-size: 0.8rem; color: var(--text-secondary); }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  .chart { width: 100%; height: auto; display: block; overflow: visible; touch-action: none; }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .chart .axis-line { stroke: var(--axis); stroke-width: 1; }
+  .chart .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .chart .series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart .end-label { font-weight: 600; font-size: 11px; }
+  .chart .dot { stroke: var(--surface); stroke-width: 1.5; }
+  .chart .incident { fill: var(--critical); stroke: var(--surface); stroke-width: 1.5; }
+
+  .crosshair { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 3 3; visibility: hidden; }
+  .tooltip {
+    position: absolute; pointer-events: none; visibility: hidden;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 0.78rem; color: var(--text-primary);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 130px; z-index: 5;
+  }
+  .tooltip .tt-date { color: var(--muted); font-size: 0.72rem; margin-bottom: 4px; }
+  .tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+  .tooltip .tt-row .k { color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .tooltip .tt-row .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  .incident-card .none { color: var(--good-ink); font-weight: 600; }
+  .incident-grid { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 0.86rem; margin-top: 8px; }
+  .incident-grid dt { color: var(--muted); }
+  .incident-grid dd { margin: 0; font-variant-numeric: tabular-nums; }
+  code { background: var(--plane); padding: 1px 5px; border-radius: 5px; font-size: 0.85em; border: 1px solid var(--border); }
+
+  details.table-view { margin-top: 4px; }
+  details.table-view summary { cursor: pointer; color: var(--text-secondary); font-size: 0.85rem; padding: 6px 0; }
+  .table-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.8rem; margin-top: 8px; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.03em; }
+  td .fail { color: var(--critical); font-weight: 600; }
+  td .ok { color: var(--good-ink); }
+
+  .empty { text-align: center; color: var(--text-secondary); padding: 48px 0; }
+  footer { color: var(--muted); font-size: 0.78rem; margin-top: 28px; text-align: center; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>site-sentry</h1>
+      <p class="sub">Uptime &amp; performance trend for <a href="https://kyledarden.com">kyledarden.com</a>, built from the scheduled QA run history.</p>
+    </div>
+    <div class="head-right">
+      <span id="status" class="status-badge"></span>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark" aria-label="Toggle light/dark theme">◐</button>
+    </div>
+  </header>
+
+  <main id="content"></main>
+
+  <footer>
+    Generated <span id="generated">—</span> · one point per scheduled run ·
+    <a href="https://github.com/dardenkyle/site-sentry">source</a>
+  </footer>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+"use strict";
+
+const HISTORY_URL = "./history.json";
+
+const SERIES = [
+  { key: "ttfb_ms",               label: "TTFB",     varname: "--series-1" },
+  { key: "dom_content_loaded_ms", label: "DOM ready",varname: "--series-2" },
+  { key: "load_ms",               label: "Load",     varname: "--series-3" },
+];
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function fmtDate(iso, withTime) {
+  const d = new Date(iso);
+  if (isNaN(d)) return iso || "—";
+  const opts = withTime
+    ? { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+    : { month: "short", day: "numeric" };
+  return d.toLocaleString(undefined, opts);
+}
+
+function relTime(iso) {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "—";
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return hrs + "h ago";
+  return Math.round(hrs / 24) + "d ago";
+}
+
+// Map a mouse event onto the chart's viewBox x coordinate.
+function eventToViewX(svg, evt) {
+  const rect = svg.getBoundingClientRect();
+  const vb = svg.viewBox.baseVal;
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  return vb.x + ((clientX - rect.left) / rect.width) * vb.width;
+}
+
+const W = 800, H = 300;
+const PAD = { top: 18, right: 64, bottom: 34, left: 46 };
+const PLOT_W = W - PAD.left - PAD.right;
+const PLOT_H = H - PAD.top - PAD.bottom;
+
+// Build one time-series line chart into `mount`. `series` is a list of
+// {key,label,color}; `fmtY` formats axis + tooltip values.
+function lineChart(mount, runs, series, opts) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const times = runs.map(r => new Date(r.timestamp).getTime());
+  const tMin = Math.min(...times), tMax = Math.max(...times);
+  const tSpan = tMax - tMin || 1;
+
+  let vMin = opts.yMin != null ? opts.yMin : Infinity;
+  let vMax = opts.yMax != null ? opts.yMax : -Infinity;
+  if (opts.yMax == null || opts.yMin == null) {
+    for (const r of runs) {
+      for (const s of series) {
+        const v = r[s.key];
+        if (typeof v === "number") { vMin = Math.min(vMin, v); vMax = Math.max(vMax, v); }
+      }
+    }
+    if (!isFinite(vMin)) { vMin = 0; vMax = 1; }
+    if (opts.yMin == null) vMin = Math.min(vMin, 0);
+    if (vMax === vMin) vMax = vMin + 1;
+    if (opts.yMin == null && opts.yMax == null) vMax += (vMax - vMin) * 0.08;
+  }
+
+  const x = t => PAD.left + ((t - tMin) / tSpan) * PLOT_W;
+  const y = v => PAD.top + PLOT_H - ((v - vMin) / (vMax - vMin)) * PLOT_H;
+
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("class", "chart");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.setAttribute("role", "img");
+
+  const mk = (name, attrs, text) => {
+    const el = document.createElementNS(svgNS, name);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    if (text != null) el.textContent = text;
+    return el;
+  };
+
+  // Y gridlines + labels
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) {
+    const v = vMin + (i / ticks) * (vMax - vMin);
+    const yy = y(v);
+    svg.appendChild(mk("line", { class: "grid-line", x1: PAD.left, y1: yy, x2: PAD.left + PLOT_W, y2: yy }));
+    svg.appendChild(mk("text", { x: PAD.left - 8, y: yy + 3.5, "text-anchor": "end" }, opts.fmtY(v)));
+  }
+
+  // X axis date ticks (up to 6, evenly across the span)
+  const xTicks = Math.min(6, runs.length);
+  for (let i = 0; i < xTicks; i++) {
+    const t = tMin + (xTicks === 1 ? 0.5 : i / (xTicks - 1)) * tSpan;
+    svg.appendChild(mk("text", { x: x(t), y: H - 12, "text-anchor": "middle" }, fmtDate(new Date(t).toISOString(), false)));
+  }
+  svg.appendChild(mk("line", { class: "axis-line", x1: PAD.left, y1: PAD.top + PLOT_H, x2: PAD.left + PLOT_W, y2: PAD.top + PLOT_H }));
+
+  // Series lines + end labels + dots
+  for (const s of series) {
+    const pts = runs.map((r, i) => ({ v: r[s.key], t: times[i], run: r }))
+                    .filter(p => typeof p.v === "number");
+    if (!pts.length) continue;
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+    svg.appendChild(mk("path", { class: "series-line", d, stroke: s.color }));
+    const last = pts[pts.length - 1];
+    svg.appendChild(mk("text", {
+      class: "end-label", x: x(last.t) + 8, y: y(last.v) + 3.5, fill: s.color, "text-anchor": "start"
+    }, series.length > 1 ? s.label : opts.fmtY(last.v)));
+  }
+  // Incident markers on the first series baseline row
+  runs.forEach((r, i) => {
+    if (r.__incident) {
+      svg.appendChild(mk("circle", { class: "incident", cx: x(times[i]), cy: PAD.top + PLOT_H, r: 4 }));
+    }
+  });
+
+  // Hover crosshair + focus dots
+  const crosshair = mk("line", { class: "crosshair", y1: PAD.top, y2: PAD.top + PLOT_H });
+  svg.appendChild(crosshair);
+  const focus = series.map(s => {
+    const c = mk("circle", { class: "dot", r: 4, fill: s.color, visibility: "hidden" });
+    svg.appendChild(c);
+    return c;
+  });
+
+  const tooltip = document.getElementById("tooltip");
+  function onMove(evt) {
+    const vx = eventToViewX(svg, evt);
+    // nearest run by time
+    let best = 0, bestDx = Infinity;
+    times.forEach((t, i) => { const dx = Math.abs(x(t) - vx); if (dx < bestDx) { bestDx = dx; best = i; } });
+    const r = runs[best];
+    crosshair.setAttribute("x1", x(times[best]));
+    crosshair.setAttribute("x2", x(times[best]));
+    crosshair.style.visibility = "visible";
+    let rows = "";
+    series.forEach((s, si) => {
+      const v = r[s.key];
+      if (typeof v === "number") {
+        focus[si].setAttribute("cx", x(times[best]));
+        focus[si].setAttribute("cy", y(v));
+        focus[si].style.visibility = "visible";
+        rows += `<div class="tt-row"><span class="k"><span class="sw" style="background:${s.color}"></span>${s.label}</span><span>${opts.fmtY(v)}</span></div>`;
+      } else {
+        focus[si].style.visibility = "hidden";
+      }
+    });
+    tooltip.innerHTML = `<div class="tt-date">${fmtDate(r.timestamp, true)}</div>${rows}`;
+    tooltip.style.visibility = "visible";
+    const svgRect = svg.getBoundingClientRect();
+    const px = svgRect.left + (x(times[best]) / W) * svgRect.width;
+    tooltip.style.left = Math.round(px + 14) + "px";
+    tooltip.style.top = Math.round(window.scrollY + svgRect.top + 10) + "px";
+  }
+  function onLeave() {
+    crosshair.style.visibility = "hidden";
+    focus.forEach(f => f.style.visibility = "hidden");
+    tooltip.style.visibility = "hidden";
+  }
+  svg.addEventListener("mousemove", onMove);
+  svg.addEventListener("mouseleave", onLeave);
+  svg.addEventListener("touchstart", onMove, { passive: true });
+  svg.addEventListener("touchmove", onMove, { passive: true });
+  svg.addEventListener("touchend", onLeave);
+
+  mount.appendChild(svg);
+}
+
+function resolveColors(series) {
+  return series.map(s => ({ ...s, color: cssVar(s.varname) }));
+}
+
+function renderStatus(history) {
+  const el = document.getElementById("status");
+  const runs = history.runs || [];
+  const last = runs[runs.length - 1];
+  const down = last && (last.failed > 0 || last.errors > 0 || last.nav_error);
+  el.className = "status-badge " + (down ? "status-down" : "status-up");
+  el.innerHTML = `<span class="dot"></span>${down ? "Site down" : "Operational"}`;
+  if (!last) { el.className = "status-badge"; el.textContent = "No data"; }
+}
+
+function tile(label, value, note) {
+  return `<div class="tile"><div class="label">${label}</div><div class="value">${value}</div><div class="note">${note || ""}</div></div>`;
+}
+
+function renderTiles(history) {
+  const runs = history.runs || [];
+  const last = runs[runs.length - 1] || {};
+  const passRate = last.pass_rate != null ? Math.round(last.pass_rate * 1000) / 10 + "%" : "—";
+  const dcl = typeof last.dom_content_loaded_ms === "number" ? Math.round(last.dom_content_loaded_ms) + "<small> ms</small>" : "—";
+  const inc = history.last_incident;
+  const incNote = inc ? relTime(inc.timestamp) : "none on record";
+  const incVal = inc ? fmtDate(inc.timestamp, false) : "None";
+  return `<section class="tiles">
+    ${tile("Latest pass rate", passRate, last.passed != null ? `${last.passed}/${last.total} tests` : "")}
+    ${tile("Latest DOM ready", dcl, "first navigation")}
+    ${tile("Runs tracked", history.run_count ?? runs.length, "scheduled QA runs")}
+    ${tile("Last incident", incVal, incNote)}
+  </section>`;
+}
+
+function legendHtml(series) {
+  return `<ul class="legend">${series.map(s =>
+    `<li><span class="swatch" style="background:${s.color}"></span>${s.label}</li>`).join("")}</ul>`;
+}
+
+function renderIncident(history) {
+  const inc = history.last_incident;
+  if (!inc) {
+    return `<div class="card incident-card"><h2>Last incident</h2><p class="none">✓ No incident on record — every tracked run passed.</p></div>`;
+  }
+  const reason = inc.nav_error ? `Navigation failed: ${inc.nav_error}`
+    : `${inc.failed || 0} failed, ${inc.errors || 0} errored`;
+  return `<div class="card incident-card">
+    <h2>Last incident</h2>
+    <dl class="incident-grid">
+      <dt>When</dt><dd>${fmtDate(inc.timestamp, true)} (${relTime(inc.timestamp)})</dd>
+      <dt>What</dt><dd>${reason}</dd>
+      <dt>Pass rate</dt><dd>${inc.pass_rate != null ? Math.round(inc.pass_rate * 1000) / 10 + "%" : "—"}</dd>
+      <dt>Run</dt><dd>${inc.run_number != null ? "#" + inc.run_number : "—"}${inc.commit_sha ? " · <code>" + inc.commit_sha.slice(0, 7) + "</code>" : ""}</dd>
+    </dl></div>`;
+}
+
+function tableView(runs) {
+  const rows = runs.slice().reverse().map(r => {
+    const down = r.failed > 0 || r.errors > 0 || r.nav_error;
+    return `<tr>
+      <td>${fmtDate(r.timestamp, true)}</td>
+      <td class="${down ? "fail" : "ok"}">${down ? "down" : "up"}</td>
+      <td>${r.pass_rate != null ? Math.round(r.pass_rate * 1000) / 10 + "%" : "—"}</td>
+      <td>${r.passed ?? "—"}/${r.total ?? "—"}</td>
+      <td>${num(r.ttfb_ms)}</td>
+      <td>${num(r.dom_content_loaded_ms)}</td>
+      <td>${num(r.load_ms)}</td>
+    </tr>`;
+  }).join("");
+  return `<details class="table-view"><summary>View all runs as a table</summary>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Run</th><th>Status</th><th>Pass</th><th>Tests</th><th>TTFB ms</th><th>DOM ms</th><th>Load ms</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div></details>`;
+}
+function num(v) { return typeof v === "number" ? Math.round(v) : "—"; }
+
+function render(history) {
+  document.getElementById("generated").textContent = history.generated_at ? fmtDate(history.generated_at, true) : "—";
+  const content = document.getElementById("content");
+  const runs = (history.runs || []).filter(r => r.timestamp);
+  renderStatus(history);
+
+  if (!runs.length) {
+    content.innerHTML = `<div class="empty">No scheduled runs recorded yet. The dashboard fills in as the twice-daily QA workflow publishes run records.</div>`;
+    return;
+  }
+  // Flag incidents so the charts can mark them.
+  runs.forEach(r => { r.__incident = r.failed > 0 || r.errors > 0 || !!r.nav_error; });
+
+  const perfSeries = resolveColors(SERIES);
+  content.innerHTML = renderTiles(history)
+    + `<div class="card" id="pass-card"><h2>Pass rate over time</h2><p class="cap">Share of non-skipped tests passing, per scheduled run. Red marks flag runs with a failure.</p></div>`
+    + `<div class="card" id="perf-card"><h2>Page-load latency trend</h2><p class="cap">The site's own timings for the session's first navigation, from the Navigation Timing API.</p>${legendHtml(perfSeries)}</div>`
+    + renderIncident(history)
+    + tableView(runs);
+
+  lineChart(document.getElementById("pass-card"), runs,
+    [{ key: "pass_rate", label: "Pass rate", color: cssVar("--series-1") }],
+    { yMin: 0, yMax: 1, fmtY: v => Math.round(v * 100) + "%" });
+
+  lineChart(document.getElementById("perf-card"), runs, perfSeries,
+    { yMin: 0, fmtY: v => Math.round(v) + " ms" });
+}
+
+function applyStoredTheme() {
+  const saved = localStorage.getItem("ss-theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+}
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const root = document.documentElement;
+  const isDark = root.getAttribute("data-theme") === "dark"
+    || (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+  const next = isDark ? "light" : "dark";
+  root.setAttribute("data-theme", next);
+  localStorage.setItem("ss-theme", next);
+  if (window.__history) render(window.__history); // recolor with new theme vars
+});
+
+applyStoredTheme();
+fetch(HISTORY_URL)
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(history => { window.__history = history; render(history); })
+  .catch(() => {
+    document.getElementById("content").innerHTML =
+      `<div class="empty">Could not load run history (history.json). Once the scheduled workflow publishes, trends appear here.</div>`;
+    document.getElementById("status").textContent = "";
+  });
+</script>
+</body>
+</html>
