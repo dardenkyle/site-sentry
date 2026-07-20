@@ -115,6 +115,10 @@ uv run pytest tests/smoke/test_smoke.py
 # Run with verbose output
 uv run pytest -v
 
+# Run against a specific engine (install it first:
+# uv run playwright install firefox webkit); CI runs all three
+uv run pytest --browser firefox
+
 # HTML reports auto-generate at test-results/report.html
 ```
 
