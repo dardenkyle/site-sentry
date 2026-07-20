@@ -15,11 +15,15 @@ from typing import Any
 
 import pytest
 from dotenv import load_dotenv
-from playwright.sync_api import Browser
+from playwright.sync_api import Browser, Page
 from playwright.sync_api import Error as PlaywrightError
 
 from tests.utils.logger import get_logger
-from tests.utils.timing import FirstNavigation
+from tests.utils.timing import (
+    FIRST_NAVIGATION_TIMEOUT_MS,
+    PAGE_LOAD_TIMEOUT_MS,
+    FirstNavigation,
+)
 
 # Create test-results directory immediately when conftest is imported
 TEST_RESULTS_DIR = Path(__file__).parent.parent / "test-results"
@@ -28,12 +32,6 @@ TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 # Tests slower than this count toward slow_count in durations.json
 SLOW_TEST_THRESHOLD_SECONDS = 5.0
 
-# Ceiling for the session's first navigation. Deliberately above the
-# budget the test asserts, so a slow-but-completing load is reported as
-# a measured number instead of a bare timeout, and well below the 30s
-# Playwright default this replaces.
-FIRST_NAVIGATION_TIMEOUT_MS = 20_000
-
 # Call-phase durations per test nodeid, collected across the session
 _test_durations: dict[str, float] = {}
 
@@ -41,6 +39,25 @@ _test_durations: dict[str, float] = {}
 load_dotenv()
 
 logger = get_logger(__name__)
+
+
+@pytest.fixture
+def page(page: Page) -> Page:
+    """Apply the suite's deliberate navigation timeout to every page.
+
+    Without this, each page.goto inherits Playwright's implicit 30s
+    default, which is how an unchosen value became the de facto
+    performance gate. Setting it here rather than per call site means a
+    new test cannot silently opt back into the default.
+
+    Args:
+        page: The plugin's built-in page fixture
+
+    Returns:
+        The same page with an explicit navigation timeout applied
+    """
+    page.set_default_navigation_timeout(PAGE_LOAD_TIMEOUT_MS)
+    return page
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -71,15 +88,16 @@ def first_navigation(browser: Browser, base_url: str) -> FirstNavigation:
         Elapsed seconds and any navigation error
     """
     context = browser.new_context(base_url=base_url)
-    page = context.new_page()
     error: str | None = None
     start = time.perf_counter()
     try:
+        page = context.new_page()
         page.goto("/", wait_until="load", timeout=FIRST_NAVIGATION_TIMEOUT_MS)
     except PlaywrightError as exc:
-        error = exc.message
-    seconds = time.perf_counter() - start
-    context.close()
+        error = str(exc)
+    finally:
+        seconds = time.perf_counter() - start
+        context.close()
     logger.info("First navigation took %.2fs (error: %s)", seconds, error)
     return FirstNavigation(seconds=seconds, error=error)
 

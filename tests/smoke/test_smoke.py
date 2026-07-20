@@ -11,15 +11,9 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from tests.utils.logger import get_logger
-from tests.utils.timing import FirstNavigation
+from tests.utils.timing import PAGE_LOAD_TIMEOUT_MS, FirstNavigation
 
 logger = get_logger(__name__)
-
-# Availability ceiling for a warm navigation. Chosen deliberately to
-# replace the implicit 30s Playwright default that previously acted as
-# the de facto performance gate: warm loads are consistently sub-second,
-# so 15s is failure territory, not slowness.
-PAGE_LOAD_TIMEOUT_MS = 15_000
 
 # Latency budget for the session's first navigation, which pays DNS,
 # TCP, and TLS setup on top of the request itself. Not a cache-cold
@@ -35,16 +29,17 @@ def test_homepage_loads(page: Page) -> None:
     """Test that the homepage is reachable and returns a healthy status.
 
     This is the availability check, not the performance gate: it asks
-    only whether the page loaded. The explicit timeout is a deliberate
-    ceiling on "never arrived", and the latency budgets live in the
-    response-time tests so a failure names which property broke.
+    only whether the page loaded. The page fixture applies the suite's
+    deliberate PAGE_LOAD_TIMEOUT_MS ceiling on "never arrived", and the
+    latency budgets live in the response-time tests, so a failure names
+    which property broke.
 
     Args:
         page: Playwright page fixture
     """
-    logger.info("Testing homepage load")
+    logger.info("Testing homepage load (ceiling %dms)", PAGE_LOAD_TIMEOUT_MS)
 
-    response = page.goto("/", timeout=PAGE_LOAD_TIMEOUT_MS)
+    response = page.goto("/")
     assert response is not None, "No response received"
     assert response.ok, f"Response not OK: {response.status}"
 
@@ -132,7 +127,7 @@ def test_warm_response_time(page: Page) -> None:
     logger.info("Testing warm page load time")
 
     start_time = time.perf_counter()
-    response = page.goto("/", wait_until="load", timeout=PAGE_LOAD_TIMEOUT_MS)
+    response = page.goto("/", wait_until="load")
     load_time = time.perf_counter() - start_time
 
     assert response is not None, "No response received"
