@@ -51,9 +51,21 @@ def _submit_contact_form(page: Page, response_body: str) -> list[Request]:
 
     page.route(FORMSUBMIT_URL_PATTERN, fulfill)
     page.goto("/contact")
-    page.fill("#name", TEST_NAME)
-    page.fill("#email", TEST_EMAIL)
-    page.fill("#message", TEST_MESSAGE)
+    # The contact page is prerendered: its inputs exist in the initial
+    # HTML before React hydrates and takes control of them. A value typed
+    # into that window never reaches React's state, so the first re-render
+    # (triggered by filling the next field) resets the controlled input to
+    # empty - which left the required Name field blank and silently blocked
+    # submission on slower WebKit CI runners while passing everywhere else.
+    # Waiting for the network to settle lets hydration finish before we
+    # type, and re-reading every value before submit turns any residual
+    # race into a clear assertion failure instead of an empty field.
+    page.wait_for_load_state("networkidle")
+    fields = (("#name", TEST_NAME), ("#email", TEST_EMAIL), ("#message", TEST_MESSAGE))
+    for selector, value in fields:
+        page.fill(selector, value)
+    for selector, value in fields:
+        expect(page.locator(selector)).to_have_value(value)
     page.get_by_role("button", name="Send Message").click()
     return captured
 

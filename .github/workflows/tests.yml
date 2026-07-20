@@ -34,6 +34,10 @@ jobs:
           enable-cache: true
           python-version: "3.12.13"
 
+      # Chromium only, deliberately. This is availability monitoring whose
+      # single result gates one site-down incident issue; a browser matrix
+      # would multiply that lifecycle and cost for no availability signal
+      # the CI matrix (ci.yml) does not already provide on push/PR.
       - name: Install dependencies
         run: |
           uv sync --locked
