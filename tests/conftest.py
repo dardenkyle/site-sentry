@@ -7,6 +7,7 @@ configuration management, and test utilities.
 import json
 import os
 import statistics
+import time
 from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,8 +15,15 @@ from typing import Any
 
 import pytest
 from dotenv import load_dotenv
+from playwright.sync_api import Browser, Page
+from playwright.sync_api import Error as PlaywrightError
 
 from tests.utils.logger import get_logger
+from tests.utils.timing import (
+    FIRST_NAVIGATION_TIMEOUT_MS,
+    PAGE_LOAD_TIMEOUT_MS,
+    FirstNavigation,
+)
 
 # Create test-results directory immediately when conftest is imported
 TEST_RESULTS_DIR = Path(__file__).parent.parent / "test-results"
@@ -31,6 +39,67 @@ _test_durations: dict[str, float] = {}
 load_dotenv()
 
 logger = get_logger(__name__)
+
+
+@pytest.fixture
+def page(page: Page) -> Page:
+    """Apply the suite's deliberate navigation timeout to every page.
+
+    Without this, each page.goto inherits Playwright's implicit 30s
+    default, which is how an unchosen value became the de facto
+    performance gate. Setting it here rather than per call site means a
+    new test cannot silently opt back into the default.
+
+    Args:
+        page: The plugin's built-in page fixture
+
+    Returns:
+        The same page with an explicit navigation timeout applied
+    """
+    page.set_default_navigation_timeout(PAGE_LOAD_TIMEOUT_MS)
+    return page
+
+
+@pytest.fixture(scope="session", autouse=True)
+def first_navigation(browser: Browser, base_url: str) -> FirstNavigation:
+    """Measure the session's first navigation to the site under test.
+
+    Runs before any test (autouse, session scope) in its own context, so
+    this is the one navigation taken before the suite has warmed
+    anything it can warm: connection setup (DNS, TCP, TLS) has not yet
+    happened in this process. Every later timing reuses that state.
+
+    This is deliberately not a cache-cold measurement. The site sits
+    behind a CDN whose edge cache is warm regardless of what the suite
+    does, and pytest-playwright already gives every test a fresh context
+    with an empty browser cache, so cache state is not what sets this
+    navigation apart. Connection setup is.
+
+    Navigation failures are captured rather than raised: raising here
+    would error every test in the session and misreport a single slow
+    request as a total outage. The smoke test that consumes this decides
+    what the numbers mean.
+
+    Args:
+        browser: Session-scoped Playwright browser from pytest-playwright
+        base_url: Base URL of the site under test
+
+    Returns:
+        Elapsed seconds and any navigation error
+    """
+    context = browser.new_context(base_url=base_url)
+    error: str | None = None
+    start = time.perf_counter()
+    try:
+        page = context.new_page()
+        page.goto("/", wait_until="load", timeout=FIRST_NAVIGATION_TIMEOUT_MS)
+    except PlaywrightError as exc:
+        error = str(exc)
+    finally:
+        seconds = time.perf_counter() - start
+        context.close()
+    logger.info("First navigation took %.2fs (error: %s)", seconds, error)
+    return FirstNavigation(seconds=seconds, error=error)
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
