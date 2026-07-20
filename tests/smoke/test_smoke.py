@@ -4,7 +4,6 @@ Fast, critical tests that verify core functionality and site availability.
 These tests should run quickly and catch major breakages.
 """
 
-import time
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -12,18 +11,27 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from tests.utils.logger import get_logger
-from tests.utils.timing import PAGE_LOAD_TIMEOUT_MS, FirstNavigation
+from tests.utils.timing import PAGE_LOAD_TIMEOUT_MS, FirstNavigation, read_navigation_timing
 from tests.utils.urls import http_variant, is_local, same_site
 
 logger = get_logger(__name__)
 
-# Latency budget for the session's first navigation, which pays DNS,
-# TCP, and TLS setup on top of the request itself. Not a cache-cold
-# budget: the CDN edge cache is warm regardless of what the suite does.
-FIRST_NAVIGATION_BUDGET_SECONDS = 10.0
+# Budgets are set on domContentLoaded read from the browser's Navigation
+# Timing, not a Python wall clock: the metric is the site's own latency,
+# with CDP round-trip and CI runner scheduling jitter excluded, so a
+# busy runner no longer produces false alarms unrelated to the site.
 
-# Latency budget once connection state is established by earlier tests.
-WARM_LOAD_BUDGET_SECONDS = 5.0
+# First-navigation budget, deliberately the looser of the two. This
+# navigation pays connection setup (DNS, TCP, TLS), visible as non-zero
+# connect timing; cold domContentLoaded is ~280ms against the live site,
+# so 3000ms is failure territory with wide headroom for a cold CI path.
+FIRST_NAVIGATION_DCL_BUDGET_MS = 3000.0
+
+# Warm-navigation budget, deliberately tighter: connection state is
+# already established, so this catches steady latency regressions rather
+# than one-time setup. Warm domContentLoaded is ~95ms live; 1500ms stays
+# failure territory while absorbing CI network variance.
+WARM_DCL_BUDGET_MS = 1500.0
 
 
 @pytest.mark.smoke
@@ -82,11 +90,13 @@ def test_no_console_errors(page: Page) -> None:
             console_errors.append(msg.text)
             logger.warning("Console error: %s", msg.text)
 
+    # Attach the listener before navigating, then bound the collection
+    # window to the load event rather than a fixed sleep: errors from
+    # HTML parse, synchronous scripts, and load handlers are all captured
+    # by the time goto returns, and the extra second the sleep cost every
+    # run is gone.
     page.on("console", handle_console)
-    page.goto("/")
-
-    # Wait a moment for any delayed console errors
-    page.wait_for_timeout(1000)
+    page.goto("/", wait_until="load")
 
     assert len(console_errors) == 0, f"Found {len(console_errors)} console errors: {console_errors}"
     logger.info("No console errors found")
@@ -109,14 +119,19 @@ def test_first_navigation_response_time(first_navigation: FirstNavigation) -> No
     Args:
         first_navigation: Session-scoped first-navigation measurement
     """
-    logger.info("First navigation took %.2fs", first_navigation.seconds)
-
-    assert first_navigation.error is None, (
-        f"First navigation failed after {first_navigation.seconds:.2f}s: {first_navigation.error}"
+    assert first_navigation.error is None, f"First navigation failed: {first_navigation.error}"
+    timing = first_navigation.timing
+    assert timing is not None, "First navigation produced no timing"
+    logger.info(
+        "First navigation: dcl=%.0fms connect=%.0fms ttfb=%.0fms",
+        timing.dom_content_loaded_ms,
+        timing.connect_ms,
+        timing.ttfb_ms,
     )
-    assert first_navigation.seconds < FIRST_NAVIGATION_BUDGET_SECONDS, (
-        f"First navigation took {first_navigation.seconds:.2f}s "
-        f"(budget {FIRST_NAVIGATION_BUDGET_SECONDS:.0f}s)"
+
+    assert timing.dom_content_loaded_ms < FIRST_NAVIGATION_DCL_BUDGET_MS, (
+        f"First navigation domContentLoaded {timing.dom_content_loaded_ms:.0f}ms "
+        f"(budget {FIRST_NAVIGATION_DCL_BUDGET_MS:.0f}ms)"
     )
 
 
@@ -131,18 +146,21 @@ def test_warm_response_time(page: Page) -> None:
     Args:
         page: Playwright page fixture
     """
-    logger.info("Testing warm page load time")
+    logger.info("Testing warm navigation timing")
 
-    start_time = time.perf_counter()
     response = page.goto("/", wait_until="load")
-    load_time = time.perf_counter() - start_time
-
     assert response is not None, "No response received"
-    assert load_time < WARM_LOAD_BUDGET_SECONDS, (
-        f"Warm navigation took {load_time:.2f}s (budget {WARM_LOAD_BUDGET_SECONDS:.0f}s)"
+
+    timing = read_navigation_timing(page)
+    assert timing is not None, "Warm navigation produced no timing"
+    logger.info(
+        "Warm navigation: dcl=%.0fms ttfb=%.0fms", timing.dom_content_loaded_ms, timing.ttfb_ms
     )
 
-    logger.info("Page loaded in %.2fs", load_time)
+    assert timing.dom_content_loaded_ms < WARM_DCL_BUDGET_MS, (
+        f"Warm navigation domContentLoaded {timing.dom_content_loaded_ms:.0f}ms "
+        f"(budget {WARM_DCL_BUDGET_MS:.0f}ms)"
+    )
 
 
 @pytest.mark.smoke

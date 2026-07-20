@@ -7,7 +7,6 @@ configuration management, and test utilities.
 import json
 import os
 import statistics
-import time
 from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,6 +23,8 @@ from tests.utils.timing import (
     FIRST_NAVIGATION_TIMEOUT_MS,
     PAGE_LOAD_TIMEOUT_MS,
     FirstNavigation,
+    NavigationTiming,
+    read_navigation_timing,
 )
 
 # Create test-results directory immediately when conftest is imported
@@ -95,21 +96,21 @@ def first_navigation(browser: Browser, base_url: str) -> FirstNavigation:
         base_url: Base URL of the site under test
 
     Returns:
-        Elapsed seconds and any navigation error
+        The browser-measured navigation timing and any navigation error
     """
     context = browser.new_context(base_url=base_url)
     error: str | None = None
-    start = time.perf_counter()
+    timing: NavigationTiming | None = None
     try:
         page = context.new_page()
         page.goto("/", wait_until="load", timeout=FIRST_NAVIGATION_TIMEOUT_MS)
+        timing = read_navigation_timing(page)
     except PlaywrightError as exc:
         error = str(exc)
     finally:
-        seconds = time.perf_counter() - start
         context.close()
-    logger.info("First navigation took %.2fs (error: %s)", seconds, error)
-    return FirstNavigation(seconds=seconds, error=error)
+    logger.info("First navigation timing: %s (error: %s)", timing, error)
+    return FirstNavigation(timing=timing, error=error)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
