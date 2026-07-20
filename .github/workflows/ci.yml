@@ -60,7 +60,7 @@ jobs:
           uv sync --locked
           uv run playwright install --with-deps chromium
       - name: Run tests
-        run: uv run pytest -v
+        run: uv run pytest -v --tracing retain-on-failure
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
