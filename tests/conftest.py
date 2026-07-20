@@ -74,8 +74,10 @@ def _write_durations_file() -> None:
         "p95_duration": round(p95, 3),
         "slow_count": sum(1 for d in durations if d > SLOW_TEST_THRESHOLD_SECONDS),
     }
-    durations_path = TEST_RESULTS_DIR / "durations.json"
-    durations_path.write_text(json.dumps(payload, indent=2) + "\n")
+    results_dir = Path(os.getenv("TEST_RESULTS_DIR", str(TEST_RESULTS_DIR)))
+    results_dir.mkdir(parents=True, exist_ok=True)
+    durations_path = results_dir / "durations.json"
+    durations_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     logger.info("Duration metrics saved: %s", durations_path)
 
 
