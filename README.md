@@ -128,14 +128,21 @@ BASE_URL=https://kyledarden.com
 
 # Browser settings
 HEADLESS=true
-BROWSER=chromium
+SLOWMO=0
+BROWSER=chromium          # chromium, firefox, or webkit; --browser wins
 VIEWPORT_WIDTH=1280
 VIEWPORT_HEIGHT=720
 
-# Test settings
-TIMEOUT=30000
+# Output
+TEST_RESULTS_DIR=test-results
+SCREENSHOTS_DIR=test-results/screenshots
 LOG_LEVEL=INFO
 ```
+
+Navigation timeouts are deliberate constants in `tests/utils/timing.py`,
+not an environment setting: an unchosen timeout value had previously
+become the suite's de-facto performance gate, so the ceilings now live
+in code where they read as a decision (see issues #57-61).
 
 ## CI/CD
 

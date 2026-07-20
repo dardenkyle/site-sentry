@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from playwright.sync_api import Browser, Page
 from playwright.sync_api import Error as PlaywrightError
 
+from tests.utils.config import resolve_browsers, screenshots_dir
 from tests.utils.logger import get_logger
 from tests.utils.timing import (
     FIRST_NAVIGATION_TIMEOUT_MS,
@@ -294,12 +295,18 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "slow: Long-running tests")
     config.addinivalue_line("markers", "no_rerun: Exempt from the smoke retry budget")
 
-    # Create test results directory
+    # Honor BROWSER when no --browser was passed. pytest_generate_tests
+    # reads config.option.browser (falling back to chromium), and this
+    # hook runs before it, so setting it here selects the browser env
+    # override with the same CLI-wins semantics as HEADLESS/SLOWMO.
+    browsers = resolve_browsers(config.getoption("browser") or [], os.environ)
+    if browsers is not None:
+        config.option.browser = browsers
+
+    # Create test results and screenshots directories
     results_dir = os.getenv("TEST_RESULTS_DIR", "test-results")
     os.makedirs(results_dir, exist_ok=True)
-
-    screenshots_dir = os.path.join(results_dir, "screenshots")
-    os.makedirs(screenshots_dir, exist_ok=True)
+    os.makedirs(screenshots_dir(os.environ), exist_ok=True)
 
     logger.info("Test results directory: %s", results_dir)
 
@@ -315,10 +322,8 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
         # Test failed, capture screenshot if page fixture was used
         page = getattr(item, "funcargs", {}).get("page")
         if page:
-            screenshot_dir = os.path.join(
-                os.getenv("TEST_RESULTS_DIR", "test-results"), "screenshots"
-            )
-            screenshot_path = os.path.join(screenshot_dir, f"{item.name}.png")
+            screenshot_dir = screenshots_dir(os.environ)
+            screenshot_path = str(screenshot_dir / f"{item.name}.png")
             try:
                 page.screenshot(path=screenshot_path)
                 logger.info("Screenshot saved: %s", screenshot_path)
