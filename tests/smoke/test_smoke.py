@@ -13,7 +13,7 @@ from playwright.sync_api import Page, expect
 
 from tests.utils.logger import get_logger
 from tests.utils.timing import PAGE_LOAD_TIMEOUT_MS, FirstNavigation
-from tests.utils.urls import http_variant, is_local
+from tests.utils.urls import http_variant, is_local, same_site
 
 logger = get_logger(__name__)
 
@@ -176,7 +176,6 @@ def test_https_redirect(page: Page, base_url: str) -> None:
         page: Playwright page fixture
         base_url: Base URL of the site under test
     """
-    expected_host = urlsplit(base_url).hostname
     if urlsplit(base_url).scheme != "https":
         pytest.skip(f"Base URL is not HTTPS, no redirect to verify: {base_url}")
     if is_local(base_url):
@@ -192,11 +191,11 @@ def test_https_redirect(page: Page, base_url: str) -> None:
     # Check that we ended up on HTTPS, still on the configured target.
     # The host matters as much as the scheme: a redirect that lands
     # somewhere else (production, a parked domain) would otherwise pass
-    # while reporting on a site this run was not asked to test.
-    final = urlsplit(page.url)
-    assert final.scheme == "https", f"Expected HTTPS, got: {page.url}"
-    assert final.hostname == expected_host, (
-        f"Redirect left the configured target: expected host {expected_host}, got {page.url}"
+    # while reporting on a site this run was not asked to test. An
+    # apex/www hop is not that, so same_site allows it.
+    assert urlsplit(page.url).scheme == "https", f"Expected HTTPS, got: {page.url}"
+    assert same_site(page.url, base_url), (
+        f"Redirect left the configured target {base_url}, landed on {page.url}"
     )
 
     logger.info("Successfully redirected to: %s", page.url)

@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from tests.utils.urls import http_variant, is_local
+from tests.utils.urls import http_variant, is_local, same_site
 
 # The production default. A derived URL may only name this host when the
 # base URL did, which is what makes BASE_URL redirection trustworthy.
@@ -61,6 +61,38 @@ def test_http_variant_never_reaches_production_for_other_targets(configured_url:
     derived_host = urlsplit(http_variant(configured_url)).hostname
 
     assert derived_host != PRODUCTION_HOST, f"Derived URL leaks production host: {derived_host}"
+
+
+@pytest.mark.smoke
+@pytest.mark.parametrize(
+    ("landed_on", "configured_url", "expected"),
+    [
+        ("https://kyledarden.com/", "https://kyledarden.com", True),
+        # kyledarden.com canonicalizes www to the apex, so a run pointed
+        # at the www host lands here and must not be called a failure
+        ("https://kyledarden.com/", "https://www.kyledarden.com", True),
+        # Other sites canonicalize the other way
+        ("https://www.example.com/", "https://example.com", True),
+        # An unrelated host is still a different site
+        ("https://kyledarden.com/", "https://staging.example.com", False),
+        ("https://kyledarden.com/", "https://staging.kyledarden.com", False),
+    ],
+)
+def test_same_site_allows_www_hops_only(
+    landed_on: str, configured_url: str, expected: bool
+) -> None:
+    """Test that apex/www counts as one site and unrelated hosts do not.
+
+    This is what keeps the redirect assertion honest: strict enough that
+    landing on production is caught, loose enough that a legitimate
+    canonicalizing hop is not reported as a failure.
+
+    Args:
+        landed_on: URL the redirect finished on
+        configured_url: Base URL a run could be pointed at
+        expected: Whether the two address the same site
+    """
+    assert same_site(landed_on, configured_url) is expected
 
 
 @pytest.mark.smoke
