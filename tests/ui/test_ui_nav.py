@@ -291,8 +291,8 @@ def test_no_broken_styles(page: Page) -> None:
 
     # The listener is attached before navigating, and stylesheets are
     # render-blocking, so every stylesheet response has arrived by the
-    # load event. Waiting for load (goto's default) rather than
-    # that lets us capture them all without hanging on late beacons.
+    # load event. Waiting for the load event rather than for the network
+    # to fall idle captures them all without hanging on late beacons.
     page.on("response", handle_response)
     page.goto("/", wait_until="load")
 

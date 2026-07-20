@@ -47,7 +47,8 @@ class NavigationTiming(NamedTuple):
         ttfb_ms: Time to first byte (responseStart); server plus network
         dom_content_loaded_ms: domContentLoadedEventEnd; DOM ready
         load_ms: loadEventEnd; all subresources of the initial HTML done
-        connect_ms: connectEnd; DNS, TCP, and TLS setup complete
+        connect_ms: connectEnd; the TCP and TLS connection is established
+            (DNS resolution is the separate domainLookup phase)
     """
 
     ttfb_ms: float

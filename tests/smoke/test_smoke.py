@@ -22,9 +22,10 @@ logger = get_logger(__name__)
 # busy runner no longer produces false alarms unrelated to the site.
 
 # First-navigation budget, deliberately the looser of the two. This
-# navigation pays connection setup (DNS, TCP, TLS), visible as non-zero
-# connect timing; cold domContentLoaded is ~280ms against the live site,
-# so 3000ms is failure territory with wide headroom for a cold CI path.
+# navigation pays one-time connection setup - DNS resolution, then the
+# TCP and TLS handshake - that later warm navigations reuse; cold
+# domContentLoaded is ~280ms against the live site, so 3000ms is failure
+# territory with wide headroom for a cold CI path.
 FIRST_NAVIGATION_DCL_BUDGET_MS = 3000.0
 
 # Warm-navigation budget, deliberately tighter: connection state is
