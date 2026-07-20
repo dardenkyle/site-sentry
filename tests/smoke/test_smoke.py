@@ -6,12 +6,14 @@ These tests should run quickly and catch major breakages.
 
 import time
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, expect
 
 from tests.utils.logger import get_logger
 from tests.utils.timing import PAGE_LOAD_TIMEOUT_MS, FirstNavigation
+from tests.utils.urls import http_variant, is_local, same_site
 
 logger = get_logger(__name__)
 
@@ -166,20 +168,39 @@ def test_main_content_visible(page: Page) -> None:
 
 
 @pytest.mark.smoke
-def test_https_redirect(page: Page) -> None:
-    """Test that HTTP requests redirect to HTTPS.
+def test_https_redirect(page: Page, base_url: str) -> None:
+    """Test that HTTP requests to the target redirect to HTTPS.
+
+    The URL is derived from base_url rather than hardcoded so that a run
+    pointed elsewhere via BASE_URL never contacts production. Targets
+    that cannot answer the question are skipped rather than failed: a
+    plain-HTTP base has no redirect to assert, and a local dev server
+    typically terminates TLS without an HTTP listener to redirect from.
 
     Args:
         page: Playwright page fixture
+        base_url: Base URL of the site under test
     """
-    logger.info("Testing HTTPS redirect")
+    if urlsplit(base_url).scheme != "https":
+        pytest.skip(f"Base URL is not HTTPS, no redirect to verify: {base_url}")
+    if is_local(base_url):
+        pytest.skip(f"Local target does not serve an HTTP redirect: {base_url}")
 
-    response = page.goto("http://kyledarden.com")
+    http_url = http_variant(base_url)
+    logger.info("Testing HTTPS redirect from %s", http_url)
+
+    response = page.goto(http_url)
 
     assert response is not None, "No response received"
 
-    # Check that we ended up on HTTPS
-    final_url = page.url
-    assert final_url.startswith("https://"), f"Expected HTTPS, got: {final_url}"
+    # Check that we ended up on HTTPS, still on the configured target.
+    # The host matters as much as the scheme: a redirect that lands
+    # somewhere else (production, a parked domain) would otherwise pass
+    # while reporting on a site this run was not asked to test. An
+    # apex/www hop is not that, so same_site allows it.
+    assert urlsplit(page.url).scheme == "https", f"Expected HTTPS, got: {page.url}"
+    assert same_site(page.url, base_url), (
+        f"Redirect left the configured target {base_url}, landed on {page.url}"
+    )
 
-    logger.info("Successfully redirected to: %s", final_url)
+    logger.info("Successfully redirected to: %s", page.url)
