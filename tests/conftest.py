@@ -118,9 +118,10 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     they cannot silently extend to the UI suite, where a rerun would
     mask a real regression instead of a transient network stall.
 
-    Tests marked no_rerun are skipped: a test whose verdict comes from a
-    session-scoped measurement re-reads the same cached value on every
-    attempt, so retrying it only burns the rerun delay.
+    Tests marked no_rerun still run normally, they just do not receive
+    the retry marker: a test whose verdict comes from a session-scoped
+    measurement re-reads the same cached value on every attempt, so
+    retrying it only burns the rerun delay.
 
     Args:
         items: Collected test items, mutated in place
