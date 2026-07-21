@@ -378,16 +378,31 @@ function tile(label, value, note) {
   return `<div class="tile"><div class="label">${label}</div><div class="value">${value}</div><div class="note">${note || ""}</div></div>`;
 }
 
+// Tests that made an assertion (skips excluded) and the skip count.
+// pass_rate is passed/ran, so counts shown against `ran` read
+// consistently with it - a fully-green run is 64/64, not 64/65.
+function ranAndSkipped(r) {
+  const ran = (r.passed || 0) + (r.failed || 0) + (r.errors || 0);
+  // null (not 0) when total is unknown, so a display can tell "zero
+  // skips" apart from "no data" - the em dash is reserved for the latter.
+  const skipped = typeof r.total === "number" ? Math.max(0, r.total - ran) : null;
+  return { ran, skipped };
+}
+
 function renderTiles(history) {
   const runs = history.runs || [];
   const last = runs[runs.length - 1] || {};
   const passRate = last.pass_rate != null ? Math.round(last.pass_rate * 1000) / 10 + "%" : "—";
   const dcl = typeof last.dom_content_loaded_ms === "number" ? Math.round(last.dom_content_loaded_ms) + "<small> ms</small>" : "—";
+  const { ran, skipped } = ranAndSkipped(last);
+  const passNote = last.passed != null
+    ? `${last.passed}/${ran} passing${skipped ? ` · ${skipped} skipped` : ""}`
+    : "";
   const inc = history.last_incident;
   const incNote = inc ? relTime(inc.timestamp) : "none on record";
   const incVal = inc ? fmtDate(inc.timestamp, false) : "None";
   return `<section class="tiles">
-    ${tile("Latest pass rate", passRate, last.passed != null ? `${last.passed}/${last.total} tests` : "")}
+    ${tile("Latest pass rate", passRate, passNote)}
     ${tile("Latest DOM ready", dcl, "first navigation")}
     ${tile("Runs tracked", history.run_count ?? runs.length, "scheduled QA runs")}
     ${tile("Last incident", incVal, incNote)}
@@ -419,11 +434,13 @@ function renderIncident(history) {
 function tableView(runs) {
   const rows = runs.slice().reverse().map(r => {
     const down = r.failed > 0 || r.errors > 0 || r.nav_error;
+    const { ran, skipped } = ranAndSkipped(r);
     return `<tr>
       <td>${fmtDate(r.timestamp, true)}</td>
       <td class="${down ? "fail" : "ok"}">${down ? "down" : "up"}</td>
       <td>${r.pass_rate != null ? Math.round(r.pass_rate * 1000) / 10 + "%" : "—"}</td>
-      <td>${r.passed ?? "—"}/${r.total ?? "—"}</td>
+      <td>${r.passed != null ? `${r.passed}/${ran}` : "—"}</td>
+      <td>${skipped ?? "—"}</td>
       <td>${num(r.ttfb_ms)}</td>
       <td>${num(r.dom_content_loaded_ms)}</td>
       <td>${num(r.load_ms)}</td>
@@ -431,7 +448,7 @@ function tableView(runs) {
   }).join("");
   return `<details class="table-view"><summary>View all runs as a table</summary>
     <div class="table-scroll"><table>
-      <thead><tr><th>Run</th><th>Status</th><th>Pass</th><th>Tests</th><th>TTFB ms</th><th>DOM ms</th><th>Load ms</th></tr></thead>
+      <thead><tr><th>Run</th><th>Status</th><th>Pass</th><th>Passing</th><th>Skip</th><th>TTFB ms</th><th>DOM ms</th><th>Load ms</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div></details>`;
 }
