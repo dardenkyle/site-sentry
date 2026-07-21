@@ -1,5 +1,6 @@
 # site-sentry
 
+[![CI](https://github.com/dardenkyle/site-sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/dardenkyle/site-sentry/actions/workflows/ci.yml)
 [![QA Tests](https://github.com/dardenkyle/site-sentry/actions/workflows/tests.yml/badge.svg)](https://github.com/dardenkyle/site-sentry/actions/workflows/tests.yml)
 [![Last Commit](https://img.shields.io/github/last-commit/dardenkyle/site-sentry?label=last%20commit&color=brightgreen)](https://github.com/dardenkyle/site-sentry/commits/main)
 
