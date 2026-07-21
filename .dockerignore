@@ -1,7 +1,9 @@
-# Keep the build context minimal: only pyproject.toml, uv.lock, and
-# tests/ are copied into the image.
+# Keep the build context minimal: only pyproject.toml, uv.lock, and the
+# app code (pipeline/, tests/) are copied into the image.
 *
 !pyproject.toml
 !uv.lock
+!pipeline/
+!pipeline/**
 !tests/
 !tests/**

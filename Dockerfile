@@ -25,6 +25,12 @@ RUN uv sync --locked
 # Browser layer: version always matches the locked playwright package.
 RUN uv run playwright install --with-deps chromium
 
+# App code. pipeline/ ships alongside tests/ so pytest collection can
+# import it: `pytest -m smoke` still imports every test module before the
+# marker deselects the non-smoke ones, and tests/pipeline imports the
+# pipeline package. It also lets the container run the transform/aggregate
+# stages, not just the suite.
+COPY pipeline/ ./pipeline/
 COPY tests/ ./tests/
 
 # Report output directory; mount it to keep reports on the host:

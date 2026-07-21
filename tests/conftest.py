@@ -46,6 +46,13 @@ SMOKE_RERUN_DELAY_SECONDS = 5
 # that triggered the retry survives into durations.json.
 _test_durations: dict[str, list[tuple[float, str]]] = {}
 
+# The session's first-navigation measurement and the engine that took
+# it, stashed by the fixture so the sessionfinish hook can persist them.
+# Module-level like _test_durations because pytest hooks receive the
+# session, not fixtures, so there is no other handle onto the value.
+_first_navigation: FirstNavigation | None = None
+_first_navigation_browser: str | None = None
+
 # Load environment variables
 load_dotenv()
 
@@ -110,7 +117,10 @@ def first_navigation(browser: Browser, base_url: str) -> FirstNavigation:
     finally:
         context.close()
     logger.info("First navigation timing: %s (error: %s)", timing, error)
-    return FirstNavigation(timing=timing, error=error)
+    global _first_navigation, _first_navigation_browser
+    _first_navigation = FirstNavigation(timing=timing, error=error)
+    _first_navigation_browser = browser.browser_type.name
+    return _first_navigation
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -150,6 +160,52 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
         _test_durations.setdefault(report.nodeid, []).append((report.duration, report.outcome))
 
 
+def _run_metadata() -> dict[str, Any]:
+    """Build the run-identity block shared by every metrics artifact.
+
+    durations.json and navigation.json both key on the same run so the
+    transform stage (#33) can join them: run_id is that join key, taken
+    from GITHUB_RUN_ID (the store dedupes on it), and "local" off CI.
+
+    Returns:
+        Mapping with run_id, run_number, and an ISO-8601 UTC timestamp
+    """
+    run_number = os.getenv("GITHUB_RUN_NUMBER")
+    return {
+        "run_id": os.getenv("GITHUB_RUN_ID", "local"),
+        "run_number": int(run_number) if run_number else None,
+        "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+
+def _write_navigation_file() -> None:
+    """Persist the session's first-navigation timing as navigation.json.
+
+    The first_navigation fixture measures the site's own latency (TTFB,
+    domContentLoaded, load, connect) from the Navigation Timing API, but
+    until now only logged it, so the one performance signal the suite
+    takes expired with the run. Writing it makes each run's site latency
+    a durable metric the trend dashboard (#33) can chart. A failed
+    navigation is recorded as its error with null timing rather than
+    dropped, so an outage is a data point too. Stdlib only.
+    """
+    timing = _first_navigation.timing if _first_navigation is not None else None
+    error = _first_navigation.error if _first_navigation is not None else None
+    payload = {
+        **_run_metadata(),
+        "browser": _first_navigation_browser,
+        "navigation": {
+            "error": error,
+            "timing": timing._asdict() if timing is not None else None,
+        },
+    }
+    results_dir = Path(os.getenv("TEST_RESULTS_DIR", str(TEST_RESULTS_DIR)))
+    results_dir.mkdir(parents=True, exist_ok=True)
+    navigation_path = results_dir / "navigation.json"
+    navigation_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    logger.info("Navigation metrics saved: %s", navigation_path)
+
+
 def _write_durations_file() -> None:
     """Aggregate collected durations and write test-results/durations.json.
 
@@ -180,11 +236,8 @@ def _write_durations_file() -> None:
         p95 = statistics.quantiles(durations, n=20, method="inclusive")[-1]
     else:
         p95 = durations[0]
-    run_number = os.getenv("GITHUB_RUN_NUMBER")
     payload = {
-        "run_id": os.getenv("GITHUB_RUN_ID", "local"),
-        "run_number": int(run_number) if run_number else None,
-        "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+        **_run_metadata(),
         "durations": {nodeid: round(d, 3) for nodeid, d in sorted(worst.items())},
         "retried": retried,
         "retried_count": len(retried),
@@ -206,11 +259,14 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> Generator[
 
     The hookwrapper=True makes this run around other sessionfinish hooks,
     and we recreate the directory right before yielding control. Duration
-    metrics are written here too, once all test reports are in.
+    and first-navigation metrics are written here too, once all test
+    reports and the session-scoped measurement are in.
     """
     TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     if _test_durations:
         _write_durations_file()
+    if _first_navigation is not None:
+        _write_navigation_file()
     yield
     # Directory created, now pytest-html can write
 

@@ -12,6 +12,8 @@ Automated QA suite for [kyledarden.com](https://kyledarden.com) built with Playw
 - **Containerized**: Full Docker support for consistent environments
 - **CI/CD ready**: Automated runs twice daily with GitHub Actions
 - **Rich reporting**: HTML test reports auto-generate with screenshots on failure
+- **Trend dashboard**: per-run metrics persisted to a durable store and served as a
+  GitHub Pages uptime/performance dashboard (see [Metrics Pipeline](#metrics-pipeline--trend-dashboard))
 - **Fast & efficient**: Optimized for quick feedback (~2m 30s in CI)
 - **uv-managed**: Fast, modern Python dependency management with a committed lockfile
 - **Fully typed**: Type hints throughout for better IDE support
@@ -163,6 +165,97 @@ Tests run automatically via GitHub Actions:
 Test results and HTML reports are uploaded as artifacts (one per browser on
 push/PR) and retained for 30 days.
 
+## Metrics Pipeline & Trend Dashboard
+
+Artifacts expire after 30 days, so no history survives them. To turn each
+scheduled run into durable trend data, the `publish` job in `tests.yml` runs a
+small end-to-end data pipeline over the run's results and serves the accumulated
+history as a static [GitHub Pages](https://dardenkyle.github.io/site-sentry/)
+dashboard - pass-rate over time, page-load latency trend, and a last-incident
+summary.
+
+```mermaid
+flowchart LR
+  subgraph E["Extract — pytest run"]
+    A["junit.xml<br/>test outcomes"]
+    B["durations.json<br/>timing aggregates"]
+    C["navigation.json<br/>site latency"]
+  end
+  subgraph T["Transform — pipeline.transform"]
+    D["RunRecord<br/>runs/dt=YYYY-MM-DD/run-&lt;id&gt;.json"]
+  end
+  subgraph L["Load — metrics-data branch"]
+    S[("Partitioned<br/>JSON store")]
+  end
+  subgraph SV["Serve — GitHub Pages"]
+    H["history.json<br/>pipeline.aggregate"]
+    G["dashboard/index.html"]
+  end
+  A --> D
+  B --> D
+  C --> D
+  D --> S
+  S --> H --> G
+```
+
+- **Extract**: the pytest run writes three raw artifacts to `test-results/` -
+  `junit.xml` (per-test outcomes), `durations.json` (per-test call durations and
+  aggregates), and `navigation.json` (the site's own first-navigation latency
+  from the Navigation Timing API).
+- **Transform** (`pipeline/transform.py`): joins those into one canonical
+  `RunRecord` keyed by run ID and writes it to a date-partitioned, run-keyed path.
+- **Load**: the record is committed to an orphan **`metrics-data`** branch that
+  serves as the durable store - git as a zero-infra warehouse. The run-keyed
+  filename makes the load idempotent: re-running a workflow overwrites its own
+  record instead of appending a duplicate.
+- **Serve** (`pipeline/aggregate.py` + `dashboard/`): the whole store is folded
+  into one `history.json`, published to GitHub Pages beside the self-contained
+  dashboard, which charts the full history rather than the latest run.
+
+### Run-record schema
+
+Each record is one run, `schema_version`-stamped so old and new records stay
+distinguishable as the shape evolves. Top-level fields:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `schema_version` | int | Contract version the record was written under |
+| `run_id` | string | CI run ID; the store's dedupe key (`"local"` off CI) |
+| `run_number` | int \| null | Human-facing CI run number |
+| `timestamp` | string | ISO-8601 UTC instant the metrics were written |
+| `trigger` | string | What started the run (`schedule`, `workflow_dispatch`, …) |
+| `browser` | string \| null | Engine the run exercised |
+| `commit_sha` | string \| null | Commit the run tested |
+| `counts` | object | Pass/fail tally (below) |
+| `duration` | object | Timing aggregates in seconds (below) |
+| `navigation` | object | First-navigation latency in ms (below) |
+| `cases` | array | Per-test `{nodeid, outcome, duration_s}` |
+
+- **`counts`**: `total`, `passed`, `failed`, `errors`, `skipped`, and `pass_rate`
+  (passed / non-skipped; `null` when nothing ran).
+- **`duration`**: `max_s`, `median_s`, `p95_s`, `slow_count`, `retried_count`,
+  and `wall_s` (junit wall time).
+- **`navigation`**: `error` (or `null`), and `ttfb_ms`, `dom_content_loaded_ms`,
+  `load_ms`, `connect_ms` (all `null` on a failed navigation).
+
+### One-time setup
+
+The dashboard deploys via GitHub Pages with **GitHub Actions** as the source
+(repo Settings → Pages → Build and deployment → Source). Until that is enabled
+the pipeline still runs and records still accrue on `metrics-data`; only the
+Pages deploy step is skipped. The store branch bootstraps itself on the first
+scheduled run, so no manual branch creation is needed.
+
+### Running the pipeline locally
+
+```bash
+# After a run has produced test-results/ artifacts:
+uv run python -m pipeline.transform --store-dir store   # write this run's record
+uv run python -m pipeline.aggregate --store-dir store --out dashboard/history.json
+# Then open dashboard/index.html (serve the folder so fetch() works):
+python -m http.server -d dashboard 8000
+```
+
 ## Development
 
 ### Code Quality
@@ -193,12 +286,19 @@ site-sentry/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml               # Push/PR: lint, type-check, docker, browser-matrix tests
-│       └── tests.yml            # Scheduled QA monitoring (Chromium only) + incident alerts
+│       └── tests.yml            # Scheduled QA monitoring + incident alerts + metrics publish
+├── pipeline/                    # Metrics pipeline (transform + aggregate, stdlib only)
+│   ├── schema.py                # Canonical RunRecord schema
+│   ├── transform.py             # Raw artifacts -> one run record
+│   └── aggregate.py             # Record store -> dashboard history.json
+├── dashboard/
+│   └── index.html               # Self-contained trend dashboard (GitHub Pages)
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py              # Pytest configuration
 │   ├── smoke/                   # Smoke tests
 │   ├── ui/                      # UI/navigation tests
+│   ├── pipeline/                # Offline unit tests for the metrics pipeline
 │   └── utils/
 │       ├── __init__.py
 │       └── logger.py            # Logging utility
