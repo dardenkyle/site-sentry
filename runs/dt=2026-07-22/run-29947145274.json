@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "run_id": "29947145274",
+  "run_number": 174,
+  "timestamp": "2026-07-22T18:33:49+00:00",
+  "trigger": "schedule",
+  "browser": "chromium",
+  "commit_sha": "b45ef7ddcb0b5639e64c9eca646e23b3f5e3b02a",
+  "counts": {
+    "total": 65,
+    "passed": 64,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 1,
+    "pass_rate": 1.0
+  },
+  "duration": {
+    "max_s": 1.684,
+    "median_s": 0.0,
+    "p95_s": 0.828,
+    "slow_count": 0,
+    "retried_count": 0,
+    "wall_s": 14.039
+  },
+  "navigation": {
+    "error": null,
+    "ttfb_ms": 161.09999999999127,
+    "dom_content_loaded_ms": 293.3000000000029,
+    "load_ms": 486.8999999999942,
+    "connect_ms": 104.30000000000291
+  },
+  "cases": [
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_to_series_entry_flattens_and_drops_cases[chromium]",
+      "outcome": "passed",
+      "duration_s": 1.098
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_dedupe_keeps_latest_timestamp_and_sorts_ascending[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_last_incident_picks_most_recent_failure[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_navigation_failure_is_an_incident[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_skip_only_run_is_not_an_incident[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_all_healthy_has_no_incident[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_build_history_shape[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_aggregate::test_load_records_reads_partitions_and_skips_corrupt[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.004
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_parse_junit_counts_and_outcomes[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_pass_rate_excludes_skips_from_denominator[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_pass_rate_is_none_when_only_skips[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_duration_stats_maps_and_tolerates_absence[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_navigation_stats_maps_timing[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_navigation_stats_failed_navigation_has_error_and_null_timing[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_build_run_record_full[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_build_run_record_survives_missing_junit[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.0
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_run_identity_prefers_durations_then_navigation[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.0
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_run_identity_falls_back_to_ci_env_when_no_artifacts[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.0
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_partition_path_is_date_partitioned_and_run_keyed[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.0
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_write_record_round_trips[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.pipeline.test_transform::test_load_json_tolerates_missing_and_corrupt[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config::test_viewport_matches_configuration[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.09
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_resolve_browsers[chromium-cli_browsers0-env0-expected0]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_screenshots_dir[chromium-env0-expected0]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_browser_env_selects_running_browser[chromium]",
+      "outcome": "skipped",
+      "duration_s": 0.0
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_homepage_loads[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.537
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_homepage_title[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.449
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_no_console_errors[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.449
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_first_navigation_response_time[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_warm_response_time[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.492
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_main_content_visible[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.513
+    },
+    {
+      "nodeid": "tests.smoke.test_smoke::test_https_redirect[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.542
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_preserves_target[chromium-https://kyledarden.com-http://kyledarden.com/]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_never_reaches_production_for_other_targets[chromium-https://staging.example.com]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_same_site_allows_www_hops_only[chromium-https://kyledarden.com/-https://kyledarden.com-True]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_is_local_identifies_loopback_targets[chromium-https://localhost:3000-True]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.ui.test_contact_form::test_contact_form_targets_formsubmit_ajax[chromium]",
+      "outcome": "passed",
+      "duration_s": 1.458
+    },
+    {
+      "nodeid": "tests.ui.test_contact_form::test_contact_form_surfaces_failure[chromium]",
+      "outcome": "passed",
+      "duration_s": 1.327
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_navigation_links_exist[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.457
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_navigation_links_valid[chromium]",
+      "outcome": "passed",
+      "duration_s": 2.022
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_navigation_link_check_detects_broken[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.849
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_responsive_viewport[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.991
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_images_load[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.512
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_meta_tags_present[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.495
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_favicon_exists[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.498
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_page_scroll[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.558
+    },
+    {
+      "nodeid": "tests.ui.test_ui_nav::test_no_broken_styles[chromium]",
+      "outcome": "passed",
+      "duration_s": 0.475
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_resolve_browsers[chromium-cli_browsers1-env1-None]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_screenshots_dir[chromium-env1-expected1]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_preserves_target[chromium-https://staging.example.com-http://staging.example.com/]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_never_reaches_production_for_other_targets[chromium-https://staging.kyledarden.com]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_same_site_allows_www_hops_only[chromium-https://kyledarden.com/-https://www.kyledarden.com-True]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_is_local_identifies_loopback_targets[chromium-http://127.0.0.1:8000-True]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_resolve_browsers[chromium-cli_browsers2-env2-None]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_screenshots_dir[chromium-env2-expected2]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_preserves_target[chromium-https://staging.example.com/-http://staging.example.com/]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_same_site_allows_www_hops_only[chromium-https://www.example.com/-https://example.com-True]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_is_local_identifies_loopback_targets[chromium-https://kyledarden.com-False]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_config_env::test_screenshots_dir[chromium-env3-expected3]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_preserves_target[chromium-https://staging.example.com/app-http://staging.example.com/app]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_same_site_allows_www_hops_only[chromium-https://kyledarden.com/-https://staging.example.com-False]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_is_local_identifies_loopback_targets[chromium-https://localhost.example.com-False]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_preserves_target[chromium-https://staging.example.com:8443-http://staging.example.com:8443/]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_same_site_allows_www_hops_only[chromium-https://kyledarden.com/-https://staging.kyledarden.com-False]",
+      "outcome": "passed",
+      "duration_s": 0.001
+    },
+    {
+      "nodeid": "tests.smoke.test_urls::test_http_variant_preserves_target[chromium-https://staging.example.com?debug=1-http://staging.example.com/]",
+      "outcome": "passed",
+      "duration_s": 0.047
+    }
+  ]
+}
