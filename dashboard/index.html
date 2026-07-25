@@ -20,6 +20,7 @@
     --series-3:     #1baf7a; /* load */
     --good:         #0ca30c;
     --critical:     #d03b3b;
+    --retry:        #b8860b;
     --good-ink:     #006300;
   }
   @media (prefers-color-scheme: dark) {
@@ -38,6 +39,7 @@
       --series-3:     #199e70;
       --good:         #0ca30c;
       --critical:     #d03b3b;
+      --retry:        #d9a824;
       --good-ink:     #0ca30c;
     }
   }
@@ -54,6 +56,7 @@
     --series-1:     #3987e5;
     --series-2:     #d95926;
     --series-3:     #199e70;
+    --retry:        #d9a824;
     --good-ink:     #0ca30c;
   }
 
@@ -111,6 +114,7 @@
   .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 0; padding: 0; list-style: none; font-size: 0.8rem; color: var(--text-secondary); }
   .legend li { display: flex; align-items: center; gap: 6px; }
   .legend .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .legend .swatch-ring { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--retry); display: inline-block; }
 
   .chart { width: 100%; height: auto; display: block; overflow: visible; touch-action: none; }
   .chart text { fill: var(--muted); font-size: 11px; }
@@ -120,6 +124,7 @@
   .chart .end-label { font-weight: 600; font-size: 11px; }
   .chart .dot { stroke: var(--surface); stroke-width: 1.5; }
   .chart .incident { fill: var(--critical); stroke: var(--surface); stroke-width: 1.5; }
+  .chart .retry { fill: none; stroke: var(--retry); stroke-width: 2; }
 
   .crosshair { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 3 3; visibility: hidden; }
   .tooltip {
@@ -187,6 +192,15 @@ const SERIES = [
   { key: "dom_content_loaded_ms", label: "DOM ready",varname: "--series-2" },
   { key: "load_ms",               label: "Load",     varname: "--series-3" },
 ];
+
+const DURATION_SERIES = [
+  { key: "max_s", label: "Slowest test", varname: "--series-2" },
+  { key: "p95_s", label: "p95",          varname: "--series-1" },
+];
+
+function hasRetries(r) {
+  return typeof r.retried_count === "number" && r.retried_count > 0;
+}
 
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -301,10 +315,17 @@ function lineChart(mount, runs, series, opts) {
       class: "end-label", x: x(last.t) + 8, y: y(last.v) + 3.5, fill: s.color, "text-anchor": "start"
     }, series.length > 1 ? s.label : opts.fmtY(last.v)));
   }
-  // Incident markers on the first series baseline row
+  // Baseline markers: incident dots on every chart, plus any
+  // chart-specific markers from opts.markers ({test, cls, r} specs).
+  // A retry ring (r=6, hollow) around an incident dot (r=4, filled)
+  // stays legible when both flag the same run.
+  const markers = [{ test: r => r.__incident, cls: "incident", r: 4 }]
+    .concat(opts.markers || []);
   runs.forEach((r, i) => {
-    if (r.__incident) {
-      svg.appendChild(mk("circle", { class: "incident", cx: x(times[i]), cy: PAD.top + PLOT_H, r: 4 }));
+    for (const m of markers) {
+      if (m.test(r)) {
+        svg.appendChild(mk("circle", { class: m.cls, cx: x(times[i]), cy: PAD.top + PLOT_H, r: m.r }));
+      }
     }
   });
 
@@ -339,6 +360,7 @@ function lineChart(mount, runs, series, opts) {
         focus[si].style.visibility = "hidden";
       }
     });
+    if (opts.tooltipExtra) rows += opts.tooltipExtra(r);
     tooltip.innerHTML = `<div class="tt-date">${fmtDate(r.timestamp, true)}</div>${rows}`;
     tooltip.style.visibility = "visible";
     const svgRect = svg.getBoundingClientRect();
@@ -409,9 +431,9 @@ function renderTiles(history) {
   </section>`;
 }
 
-function legendHtml(series) {
+function legendHtml(series, extra) {
   return `<ul class="legend">${series.map(s =>
-    `<li><span class="swatch" style="background:${s.color}"></span>${s.label}</li>`).join("")}</ul>`;
+    `<li><span class="swatch" style="background:${s.color}"></span>${s.label}</li>`).join("")}${extra || ""}</ul>`;
 }
 
 function renderIncident(history) {
@@ -468,9 +490,12 @@ function render(history) {
   runs.forEach(r => { r.__incident = r.failed > 0 || r.errors > 0 || !!r.nav_error; });
 
   const perfSeries = resolveColors(SERIES);
+  const durationSeries = resolveColors(DURATION_SERIES);
+  const retryLegend = `<li><span class="swatch-ring"></span>Run with retries</li>`;
   content.innerHTML = renderTiles(history)
     + `<div class="card" id="pass-card"><h2>Pass rate over time</h2><p class="cap">Share of non-skipped tests passing, per scheduled run. Red marks flag runs with a failure.</p></div>`
     + `<div class="card" id="perf-card"><h2>Page-load latency trend</h2><p class="cap">The site's own timings for the session's first navigation, from the Navigation Timing API.</p>${legendHtml(perfSeries)}</div>`
+    + `<div class="card" id="duration-card"><h2>Test-duration trend</h2><p class="cap">Slowest single test and 95th percentile per scheduled run. A slowest-test spike over a retry ring is a stall absorbed by a retry; p95 rising without either is quiet drift toward the timeout.</p>${legendHtml(durationSeries, retryLegend)}</div>`
     + renderIncident(history)
     + tableView(runs);
 
@@ -480,6 +505,15 @@ function render(history) {
 
   lineChart(document.getElementById("perf-card"), runs, perfSeries,
     { yMin: 0, fmtY: v => Math.round(v) + " ms" });
+
+  lineChart(document.getElementById("duration-card"), runs, durationSeries, {
+    yMin: 0,
+    fmtY: v => v.toFixed(1) + " s",
+    markers: [{ test: hasRetries, cls: "retry", r: 6 }],
+    tooltipExtra: r => hasRetries(r)
+      ? `<div class="tt-row"><span class="k"><span class="sw" style="background:var(--retry)"></span>Retried</span><span>${r.retried_count}</span></div>`
+      : "",
+  });
 }
 
 function applyStoredTheme() {
