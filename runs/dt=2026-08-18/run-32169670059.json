@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "run_id": "32169670059",
+  "run_number": 229,
+  "timestamp": "2026-08-18T18:11:48+00:00",
+  "trigger": "schedule",
+  "browser": null,
+  "commit_sha": "ac15d0fcd349ac8e461dd42fc87c7e1013c29a82",
+  "counts": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": null
+  },
+  "duration": {
+    "max_s": null,
+    "median_s": null,
+    "p95_s": null,
+    "slow_count": null,
+    "retried_count": null,
+    "wall_s": null
+  },
+  "navigation": {
+    "error": null,
+    "ttfb_ms": null,
+    "dom_content_loaded_ms": null,
+    "load_ms": null,
+    "connect_ms": null
+  },
+  "cases": []
+}
