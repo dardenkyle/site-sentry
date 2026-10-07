@@ -1,5 +1,5 @@
 ---
-name: "🗺️ Project Task / Roadmap Item"
+name: "Project Task / Roadmap Item"
 about: Track progress toward a larger milestone or roadmap deliverable
 title: "chore: "
 labels: ["roadmap"]
