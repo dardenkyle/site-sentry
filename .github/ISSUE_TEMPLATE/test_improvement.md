@@ -1,5 +1,5 @@
 ---
-name: "🧪 Test / QA Improvement"
+name: "Test / QA Improvement"
 about: Add or enhance tests, reporting, or coverage
 title: "test: "
 labels: ["testing", "quality"]

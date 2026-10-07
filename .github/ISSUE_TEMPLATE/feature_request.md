@@ -1,5 +1,5 @@
 ---
-name: "✨ Feature Request"
+name: "Feature Request"
 about: Suggest a new capability or improvement for Site Sentry
 title: "feat: "
 labels: ["enhancement"]

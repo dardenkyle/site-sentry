@@ -1,5 +1,5 @@
 ---
-name: "🧰 Developer Experience / Tooling"
+name: "Developer Experience / Tooling"
 about: Improve linting, typing, formatting, or automation setup
 title: "dx: "
 labels: ["tooling", "maintenance"]

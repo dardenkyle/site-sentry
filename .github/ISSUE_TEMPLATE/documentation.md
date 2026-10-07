@@ -1,5 +1,5 @@
 ---
-name: "📄 Documentation / README Update"
+name: "Documentation / README Update"
 about: Improve README, Quickstart, or architectural docs
 title: "docs: "
 labels: ["documentation"]

@@ -1,5 +1,5 @@
 ---
-name: "🐛 Bug Report"
+name: "Bug Report"
 about: Report a problem or regression in tests, CI, or code
 title: "fix: "
 labels: ["bug"]
